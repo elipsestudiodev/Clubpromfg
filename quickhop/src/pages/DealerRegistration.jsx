@@ -374,7 +374,7 @@ const DealerRegistration = () => {
                   className="bg-white rounded-lg shadow-md p-8"
                 >
                   <h2 className="text-3xl font-bold mb-2">
-                    Green Grass Registration
+                    Quickshop Registration
                   </h2>
 
                   <p className="text-sm text-gray-700 mb-8">
