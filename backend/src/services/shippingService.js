@@ -9,9 +9,9 @@ class ShippingService {
    */
   async buildParcel(items = []) {
     let totalWeightLb = 0;
-    let maxLengthIn = 5;
-    let maxWidthIn = 5;
-    let totalHeightIn = 5;
+    let maxLengthIn = 0;
+    let maxWidthIn = 0;
+    let totalHeightIn = 0;
 
     const productIds = items
       .map((item) => Number(item.id || item.productId))
@@ -52,11 +52,11 @@ class ShippingService {
       totalHeightIn += height * qty;
     }
 
-    // Safety bounds
+    // Safety bounds & defaults if none specified
     totalWeightLb = Math.max(0.5, totalWeightLb);
-    maxLengthIn = Math.max(5, maxLengthIn);
-    maxWidthIn = Math.max(5, maxWidthIn);
-    totalHeightIn = Math.max(5, Math.min(108, totalHeightIn)); // Max single box constraint
+    maxLengthIn = Math.max(1, maxLengthIn || 10);
+    maxWidthIn = Math.max(1, maxWidthIn || 10);
+    totalHeightIn = Math.max(1, Math.min(108, totalHeightIn || 4)); // Max single box constraint
 
     return {
       weight: parseFloat(totalWeightLb.toFixed(2)),

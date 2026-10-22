@@ -122,8 +122,6 @@ class UpsService {
       };
     });
 
-    const isResidential = toAddress.isResidential !== false;
-
     const requestBody = {
       RateRequest: {
         Request: {
@@ -151,7 +149,7 @@ class UpsService {
               StateProvinceCode: toAddress.state || '',
               PostalCode: toAddress.zip || '',
               CountryCode: toAddress.country || 'US',
-              ResidentialAddressIndicator: isResidential ? 'Y' : 'N',
+              ...(toAddress.isResidential === true ? { ResidentialAddressIndicator: 'Y' } : {}),
             },
           },
           ShipFrom: {
