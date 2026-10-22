@@ -4,8 +4,8 @@ import { BASE_API } from "../../utils/api";
 const SEO = ({
     slug,
     data,
-    defaultTitle = "Club Pro Mfg",
-    defaultDescription = "Premium Golf Cart Parts & Accessories"
+    defaultTitle = "Clubpro MFG - Quickhop",
+    defaultDescription = "Clubpro MFG offers a wide range of golf cart parts and accessories for Club Car, E-Z-GO, and Yamaha golf carts. Shop now for premium quality and style."
 }) => {
     useEffect(() => {
         const updateMetaTags = (seoData) => {

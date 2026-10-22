@@ -1,36 +1,3 @@
-// src/App.jsx
-// import { Routes, Route } from "react-router-dom";
-// import MainLayout from "./components/layout/MainLayout";
-// import HomePage from "./pages/HomePage";
-// import ShopCategory from "./pages/ShopCategory";
-// import ProductDetail from "./pages/ProductDetail";
-// import Profile from "./pages/Profile";
-
-// function App() {
-//   return (
-//     <MainLayout>
-//       <Routes>
-//         <Route path="/" element={<HomePage />} />
-
-//         {/* General shop */}
-//         <Route path="/shop" element={<ShopCategory />} />
-
-//         {/* Brand page */}
-//         <Route path="/shop/:brandName" element={<ShopCategory />} />
-
-//         {/* Brand + Model page */}
-//         <Route path="/shop/:brandName/:modelId" element={<ShopCategory />} />
-//         <Route path="/product/:id" element={<ProductDetail />} />
-//         <Route path="/profile" element={<Profile />} />
-//       </Routes>
-//     </MainLayout>
-//   );
-// }
-
-// export default App;
-
-
-// src/App.jsx
 import { Routes, Route } from "react-router-dom";
 import MainLayout from "./components/layout/MainLayout";
 

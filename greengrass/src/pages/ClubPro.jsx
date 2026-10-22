@@ -1,15 +1,3 @@
-// export default function ClubPro() {
-//   return (
-//     <div className="p-8">
-//       <h1 className="text-4xl font-bold mb-4">CLUB PRO</h1>
-//       <p className="text-gray-700 text-lg">
-//         Club Pro page
-//       </p>
-//     </div>
-//   );
-// }
-
-
 export default function ClubPro() {
   return (
     <div className="container mx-auto px-6 py-16">
