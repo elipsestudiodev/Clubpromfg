@@ -54,7 +54,7 @@ export default function Checkout() {
 
   /* ── Live Shipping Rate Auto-Fetch on Address/Zip change ─── */
   useEffect(() => {
-    if (!shippingAddress.zip || shippingAddress.zip.trim().length < 5 || items.length === 0) {
+    if (!shippingAddress.zip || shippingAddress.zip.trim().length < 3 || items.length === 0) {
       return;
     }
 
@@ -740,6 +740,23 @@ export default function Checkout() {
                       />
                     </div>
                     <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                        Country *
+                      </label>
+                      <select
+                        value={shippingAddress.country || 'US'}
+                        onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#f9c821] bg-white transition-colors font-medium"
+                      >
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="GB">United Kingdom</option>
+                        <option value="AU">Australia</option>
+                        <option value="MX">Mexico</option>
+                        <option value="DE">Germany</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
                         Phone Number
                       </label>

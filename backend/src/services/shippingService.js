@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const upsService = require('./upsService');
+const fedexService = require('./fedexService');
 
 const prisma = new PrismaClient();
 
@@ -77,7 +78,7 @@ class ShippingService {
   }
 
   /**
-   * International rate calculation (ShipHero / Larimar Logistics partner standard)
+   * International fallback rate if carrier API is temporarily unreachable
    */
   calculateInternationalRate(parcel, countryCode) {
     const baseRate = parseFloat(process.env.INTERNATIONAL_BASE_RATE || '39.00');
@@ -88,7 +89,8 @@ class ShippingService {
 
   /**
    * Unified Rate Calculation:
-   * Combines UPS live domestic rates + International rates and presents ONE final rate to the user
+   * Domestic (US) -> UPS Live Rates API (Account 80E8E8)
+   * International (Non-US) -> FedEx Live Rates API
    */
   async calculateRate({ items = [], shippingAddress = {} }) {
     const parcel = await this.buildParcel(items);
@@ -96,17 +98,48 @@ class ShippingService {
     const isDomestic = country === 'US' || country === 'USA';
 
     // ─────────────────────────────────────────────────────────────
-    // 1. INTERNATIONAL DESTINATIONS (ShipHero / Larimar Logistics)
+    // 1. INTERNATIONAL DESTINATIONS — Live FedEx API
     // ─────────────────────────────────────────────────────────────
     if (!isDomestic) {
-      console.log(`[Shipping Service] Calculating International Rate for country: ${country}`);
-      const cost = this.calculateInternationalRate(parcel, country);
+      console.log(`[Shipping Service] Fetching FedEx International Live Rate for country: ${country}...`);
+
+      const hasFedexCredentials = Boolean(process.env.FEDEX_CLIENT_ID && process.env.FEDEX_CLIENT_SECRET);
+      if (hasFedexCredentials) {
+        try {
+          const fedexResult = await fedexService.getLiveRates({
+            toAddress: shippingAddress,
+            packages: [parcel],
+          });
+
+          if (fedexResult.selectedRate) {
+            console.log(`[Shipping Service] FedEx International live rate acquired: $${fedexResult.selectedRate.cost} (${fedexResult.selectedRate.serviceName})`);
+            return {
+              success: true,
+              isInternational: true,
+              carrier: 'FedEx',
+              serviceName: fedexResult.selectedRate.serviceName || 'FedEx International Economy',
+              serviceCode: fedexResult.selectedRate.serviceCode || 'INTERNATIONAL_ECONOMY',
+              cost: fedexResult.selectedRate.cost,
+              rates: fedexResult.rates,
+              parcel,
+            };
+          }
+        } catch (fedexErr) {
+          console.warn('[Shipping Service Warning] FedEx International Live Rate lookup failed, using calibrated fallback:', fedexErr.message);
+        }
+      } else {
+        console.log('[Shipping Service Notice] FedEx credentials not configured, using international fallback.');
+      }
+
+      // Safety fallback for international if carrier API temporarily down
+      const fallbackCost = this.calculateInternationalRate(parcel, country);
       return {
         success: true,
         isInternational: true,
-        carrier: 'ShipHero / Larimar International',
-        serviceName: 'International Standard Shipping',
-        cost,
+        carrier: 'FedEx',
+        serviceName: 'FedEx International Economy',
+        cost: fallbackCost,
+        isFallback: true,
         parcel,
       };
     }
