@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Environment variables (secrets — never commit)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Build output
+dist/
+build/
+
+# User-uploaded content (runtime data, not source)
+uploads/    
+uploads/*
+!uploads/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
