@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/sonner"
 
 export const metadata = {
-  title: "Golf Cart - Admin Dashboard",
-  description: "Golf Cart Main Admin Dashboard",
+  title: "Clubpro MFG - Admin Dashboard",
+  description: "Clubpro MFG Main Admin Dashboard",
 };
 
 export default function RootLayout({ children }) {
