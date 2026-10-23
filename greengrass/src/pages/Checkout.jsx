@@ -44,24 +44,27 @@ export default function Checkout() {
   const [shippingCost, setShippingCost] = useState(0);
   const [shippingServiceName, setShippingServiceName] = useState('');
   const [shippingLoading, setShippingLoading] = useState(false);
-  const [availableCountries, setAvailableCountries] = useState([
-    { code: 'US', name: 'United States' },
-    { code: 'CA', name: 'Canada' },
-    { code: 'GB', name: 'United Kingdom' },
-    { code: 'AU', name: 'Australia' },
-    { code: 'DE', name: 'Germany' },
-    { code: 'MX', name: 'Mexico' },
-  ]);
+  const [availableCountries, setAvailableCountries] = useState([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${BASE_URL}/shipping/countries`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.countries) && data.countries.length > 0) {
+        if (data.success && Array.isArray(data.countries)) {
           setAvailableCountries(data.countries);
+          if (data.countries.length > 0) {
+            setShippingAddress((prev) => ({
+              ...prev,
+              country: prev.country && data.countries.some((c) => c.code === prev.country)
+                ? prev.country
+                : data.countries[0].code,
+            }));
+          }
         }
       })
-      .catch((err) => console.warn('Could not load dynamic shipping countries:', err));
+      .catch((err) => console.warn('Could not load dynamic shipping countries:', err))
+      .finally(() => setCountriesLoading(false));
   }, []);
 
   const subtotal = items.reduce(
@@ -719,6 +722,29 @@ export default function Checkout() {
                         className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#f9c821] bg-white transition-colors"
                       />
                     </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                        Country *
+                      </label>
+                      <select
+                        value={shippingAddress.country || ''}
+                        onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#f9c821] bg-white transition-colors font-medium"
+                        required
+                      >
+                        {countriesLoading ? (
+                          <option value="">Loading countries...</option>
+                        ) : availableCountries.length === 0 ? (
+                          <option value="">No shipping countries available</option>
+                        ) : (
+                          availableCountries.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
                         City *
@@ -759,23 +785,6 @@ export default function Checkout() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
-                        Country *
-                      </label>
-                      <select
-                        value={shippingAddress.country || 'US'}
-                        onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:border-[#f9c821] bg-white transition-colors font-medium"
-                      >
-                        <option value="US">United States</option>
-                        <option value="CA">Canada</option>
-                        <option value="GB">United Kingdom</option>
-                        <option value="AU">Australia</option>
-                        <option value="MX">Mexico</option>
-                        <option value="DE">Germany</option>
-                      </select>
-                    </div>
-                    <div className="md:col-span-2">
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
                         Phone Number
                       </label>

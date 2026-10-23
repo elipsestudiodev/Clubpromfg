@@ -3,15 +3,6 @@ const shippingService = require('../services/shippingService');
 
 const prisma = new PrismaClient();
 
-const DEFAULT_COUNTRIES = [
-  { id: 1, code: 'US', name: 'United States', carrier: 'UPS', isActive: true, sortOrder: 1 },
-  { id: 2, code: 'CA', name: 'Canada', carrier: 'FedEx', isActive: true, sortOrder: 2 },
-  { id: 3, code: 'GB', name: 'United Kingdom', carrier: 'FedEx', isActive: true, sortOrder: 3 },
-  { id: 4, code: 'AU', name: 'Australia', carrier: 'FedEx', isActive: true, sortOrder: 4 },
-  { id: 5, code: 'DE', name: 'Germany', carrier: 'FedEx', isActive: true, sortOrder: 5 },
-  { id: 6, code: 'MX', name: 'Mexico', carrier: 'FedEx', isActive: true, sortOrder: 6 },
-];
-
 /**
  * POST /api/shipping/calculate-rate
  * Body: { items: [{ id, qty }], shippingAddress: { zip, state, city, address1, country } }
@@ -57,29 +48,21 @@ exports.calculateRate = async (req, res) => {
  */
 exports.getActiveCountries = async (req, res) => {
   try {
-    let countries = [];
-    try {
-      countries = await prisma.shippingCountry.findMany({
-        where: { isActive: true },
-        orderBy: { sortOrder: 'asc' },
-      });
-    } catch (dbErr) {
-      console.warn('[Shipping Controller] Failed to fetch countries from DB, using defaults:', dbErr.message);
-    }
-
-    if (!countries || countries.length === 0) {
-      countries = DEFAULT_COUNTRIES;
-    }
+    const countries = await prisma.shippingCountry.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    });
 
     return res.status(200).json({
       success: true,
-      countries,
+      countries: countries || [],
     });
   } catch (err) {
     console.error('[Shipping Controller] Error fetching active countries:', err);
-    return res.status(200).json({
-      success: true,
-      countries: DEFAULT_COUNTRIES,
+    return res.status(500).json({
+      success: false,
+      countries: [],
+      error: err.message,
     });
   }
 };

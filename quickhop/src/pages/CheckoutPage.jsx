@@ -42,24 +42,27 @@ const CheckoutPage = () => {
   const [shippingCost, setShippingCost] = useState(0);
   const [shippingServiceName, setShippingServiceName] = useState('');
   const [shippingLoading, setShippingLoading] = useState(false);
-  const [availableCountries, setAvailableCountries] = useState([
-    { code: 'US', name: 'United States' },
-    { code: 'CA', name: 'Canada' },
-    { code: 'GB', name: 'United Kingdom' },
-    { code: 'AU', name: 'Australia' },
-    { code: 'DE', name: 'Germany' },
-    { code: 'MX', name: 'Mexico' },
-  ]);
+  const [availableCountries, setAvailableCountries] = useState([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${BASE_API}/shipping/countries`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.countries) && data.countries.length > 0) {
+        if (data.success && Array.isArray(data.countries)) {
           setAvailableCountries(data.countries);
+          if (data.countries.length > 0) {
+            setShippingAddress((prev) => ({
+              ...prev,
+              country: prev.country && data.countries.some((c) => c.code === prev.country)
+                ? prev.country
+                : data.countries[0].code,
+            }));
+          }
         }
       })
-      .catch((err) => console.warn('Could not load dynamic shipping countries:', err));
+      .catch((err) => console.warn('Could not load dynamic shipping countries:', err))
+      .finally(() => setCountriesLoading(false));
   }, []);
 
   // Keep a stable ref to shippingAddress so submitDimeCharge doesn't change on every keystroke
@@ -654,15 +657,22 @@ const CheckoutPage = () => {
                         Country *
                       </label>
                       <select
-                        value={shippingAddress.country || 'US'}
+                        value={shippingAddress.country || ''}
                         onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-yellow-500 transition-colors bg-white font-medium"
+                        required
                       >
-                        {availableCountries.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.name}
-                          </option>
-                        ))}
+                        {countriesLoading ? (
+                          <option value="">Loading countries...</option>
+                        ) : availableCountries.length === 0 ? (
+                          <option value="">No shipping countries available</option>
+                        ) : (
+                          availableCountries.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.name}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </div>
                     <div>
