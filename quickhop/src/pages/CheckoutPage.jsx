@@ -22,6 +22,7 @@ const CheckoutPage = () => {
   const [processing, setProcessing]         = useState(false);
   const [dimeError, setDimeError]           = useState('');
   const [paySuccess, setPaySuccess]         = useState(false);
+  const [bypassPayment, setBypassPayment]   = useState(false);
 
   /* ── Shipping & Billing Address State ───────────────────── */
   const [shippingAddress, setShippingAddress] = useState({
