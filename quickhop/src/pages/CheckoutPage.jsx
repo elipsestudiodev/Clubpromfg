@@ -182,6 +182,7 @@ const CheckoutPage = () => {
         const res  = await fetch(`${BASE_API}/payment/gateway-config`);
         const data = await res.json();
         setGateway(data.gateway);
+        setBypassPayment(Boolean(data.bypassPayment));
         if (data.gateway === 'dime') {
           setDimeTokenKey(data.tokenizationKey || '');
           setDimeGatewayUrl(data.gatewayUrl || 'https://dime.transactiongateway.com');
@@ -368,6 +369,12 @@ const CheckoutPage = () => {
       setDimeError('Please fill in your Shipping Address (Full Name, Street Address, City, Zip Code).');
       return;
     }
+    if (bypassPayment) {
+      setProcessing(true);
+      submitDimeCharge('BYPASS_TEST_TOKEN');
+      return;
+    }
+
     if (!collectJsReady || !window.CollectJS) {
       setDimeError('Payment form is still loading. Please wait a moment.');
       return;
@@ -766,6 +773,14 @@ const CheckoutPage = () => {
                   ) : (
                     /* ── DIME / NMI ── */
                     <form id="dime-payment-form" onSubmit={handleDimeSubmit}>
+                      {bypassPayment && (
+                        <div className="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-xl text-xs mb-4 flex items-center gap-2.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse flex-shrink-0" />
+                          <span>
+                            <strong>Payment Bypass Active (.env):</strong> Gateway card charge is disabled. Clicking Place Order will directly create the order in DB and trigger Fishbowl sync!
+                          </span>
+                        </div>
+                      )}
                       {/* Title & Card Icons inline */}
                       <div className="flex items-center gap-2 mb-3">
                         <h3 className="font-bold text-gray-900 text-sm tracking-wide">
@@ -830,7 +845,7 @@ const CheckoutPage = () => {
                       <button
                         id="dime-pay-btn"
                         type="submit"
-                        disabled={!collectJsReady || processing}
+                        disabled={(!bypassPayment && !collectJsReady) || processing}
                         className="w-full py-4 bg-[#f9c821] hover:bg-yellow-500 active:bg-yellow-600
                                    text-white font-bold rounded-xl transition-all shadow-md
                                    flex items-center justify-center gap-2

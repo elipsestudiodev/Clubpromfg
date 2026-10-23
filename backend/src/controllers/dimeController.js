@@ -22,14 +22,21 @@ function splitName(fullName) {
 // Returns { gateway: "stripe" | "dime", tokenizationKey?: string }
 exports.getGatewayConfig = (req, res) => {
   const stripeEnabled = process.env.STRIPE_ENABLED === "true";
-  if (stripeEnabled) {
-    return res.json({ gateway: "stripe" });
+  const isBypass =
+    process.env.BYPASS_PAYMENT === "true" ||
+    process.env.NMI_BYPASS_PAYMENT === "true" ||
+    process.env.DIME_BYPASS_PAYMENT === "true";
+
+  if (stripeEnabled && !isBypass) {
+    return res.json({ gateway: "stripe", bypassPayment: false });
   }
+
   // Return public tokenization key for Collect.js — never the private security_key
   return res.json({
     gateway: "dime",
     tokenizationKey: process.env.DIME_TOKENIZATION_KEY,
     gatewayUrl: process.env.DIME_GATEWAY_URL || "https://dime.transactiongateway.com",
+    bypassPayment: isBypass,
   });
 };
 
@@ -281,7 +288,7 @@ exports.dimeCharge = async (req, res) => {
       success: true,
       transactionId,
       orderId: order.id,
-      message: "Payment successful",
+      message: isBypass ? "Order placed successfully (Payment Gateway Bypassed)" : "Payment successful",
     });
 
   } catch (err) {
