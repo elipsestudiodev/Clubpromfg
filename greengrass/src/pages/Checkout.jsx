@@ -14,7 +14,7 @@ export default function Checkout() {
   const items = carts || []; // flat array of products
 
   /* ── Gateway state ──────────────────────────────────────── */
-  const [gateway, setGateway]           = useState(null);  // "stripe" | "dime"
+  const [gateway, setGateway]           = useState('dime');
   const [dimeTokenKey, setDimeTokenKey] = useState('');
   const [dimeGatewayUrl, setDimeGatewayUrl] = useState('https://dime.transactiongateway.com');
   const [gatewayLoading, setGatewayLoading] = useState(true);
@@ -24,9 +24,6 @@ export default function Checkout() {
   const [processing, setProcessing]         = useState(false);
   const [dimeError, setDimeError]           = useState('');
   const [paySuccess, setPaySuccess]         = useState(false);
-
-  /* ── Stripe state ───────────────────────────────────────── */
-  const [stripeLoading, setStripeLoading] = useState(false);
 
   /* ── Shipping & Billing Address State ───────────────────── */
   const [shippingAddress, setShippingAddress] = useState({
@@ -175,14 +172,13 @@ export default function Checkout() {
       try {
         const res  = await fetch(`${BASE_URL}/payment/gateway-config`);
         const data = await res.json();
-        setGateway(data.gateway);
+        setGateway('dime');
         setBypassPayment(Boolean(data.bypassPayment));
-        if (data.gateway === 'dime') {
-          setDimeTokenKey(data.tokenizationKey || '');
-          setDimeGatewayUrl(data.gatewayUrl || 'https://dime.transactiongateway.com');
-        }
-      } catch {
-        setGateway('stripe'); // fallback
+        setDimeTokenKey(data.tokenizationKey || '');
+        setDimeGatewayUrl(data.gatewayUrl || 'https://dime.transactiongateway.com');
+      } catch (err) {
+        console.warn('Gateway config fetch fallback:', err);
+        setGateway('dime');
       } finally {
         setGatewayLoading(false);
       }
@@ -400,103 +396,6 @@ export default function Checkout() {
       console.error('CollectJS startPaymentRequest error:', err);
       setDimeError('Failed to process payment request. Please check card details.');
       setProcessing(false);
-    }
-  };
-
-  /* ── Stripe handler ──────────────────────────────────────── */
-  const handleStripeCheckout = async () => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      alert("Please log in to proceed with checkout.");
-      navigate("/login");
-      return;
-    }
-
-    setStripeLoading(true);
-    try {
-      const outOfStock = items.find(item => item.qty > item.stock);
-      if (outOfStock) {
-        alert(`${outOfStock.name} is out of stock`);
-        setStripeLoading(false);
-        return;
-      }
-
-      const body = {
-        items: items.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: Number(item.price),
-          qty: Number(item.qty || item.quantity || 1),
-          quantity: Number(item.qty || item.quantity || 1),
-        })),
-        shippingAddress: {
-          fullName: shippingAddress.fullName,
-          address1: shippingAddress.address1,
-          address2: shippingAddress.address2,
-          city:     shippingAddress.city,
-          state:    shippingAddress.state,
-          zip:      shippingAddress.zip,
-          country:  shippingAddress.country || 'US',
-          phone:    shippingAddress.phone,
-        },
-        billingAddress: {
-          firstName: shippingAddress.fullName?.trim().split(/\s+/)[0] || '',
-          lastName:  shippingAddress.fullName?.trim().split(/\s+/).slice(1).join(' ') || '',
-          address1:  shippingAddress.address1,
-          address2:  shippingAddress.address2,
-          city:      shippingAddress.city,
-          state:     shippingAddress.state,
-          zip:       shippingAddress.zip,
-          country:   shippingAddress.country || 'US',
-        },
-      };
-
-      const response = await fetch(`${BASE_URL}/checkout/stripe-session`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (response.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        alert("Your session has expired. Please log in again to complete checkout.");
-        navigate("/login");
-        return;
-      }
-
-      if (!response.ok) {
-        let errorMsg = "Stripe session request failed";
-        try {
-          const errorData = await response.json();
-          errorMsg = errorData.message || errorMsg;
-        } catch {
-          const text = await response.text();
-          errorMsg = text || errorMsg;
-        }
-        throw new Error(errorMsg);
-      }
-
-      const data = await response.json();
-      clearCart();
-      window.location.href = data.url;
-
-    } catch (err) {
-      console.error("Stripe checkout failed:", err);
-      if (err.message && (err.message.includes("Invalid token") || err.message.includes("Unauthorized"))) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        alert("Your session has expired. Please log in again.");
-        navigate("/login");
-        return;
-      }
-      alert("Checkout failed: " + err.message);
-    } finally {
-      setStripeLoading(false);
     }
   };
 
@@ -811,31 +710,6 @@ export default function Checkout() {
                     <div className="flex items-center justify-center py-8 gap-3 text-gray-400">
                       <Loader2 size={20} className="animate-spin" />
                       <span className="text-sm">Loading payment options…</span>
-                    </div>
-                  ) : gateway === 'stripe' ? (
-                    /* ── STRIPE ── */
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-sm mb-4 flex items-center gap-2">
-                        <CreditCard size={16} className="text-[#f9c821]" /> Secure Payment via Stripe
-                      </h3>
-                      <button
-                        id="stripe-checkout-btn"
-                        onClick={handleStripeCheckout}
-                        disabled={stripeLoading}
-                        className="w-full py-4 bg-[#f9c821] hover:bg-yellow-500 active:bg-yellow-600
-                                   text-white font-bold rounded-xl transition-all shadow-md
-                                   flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed
-                                   text-sm tracking-widest uppercase"
-                      >
-                        {stripeLoading ? (
-                          <><Loader2 size={18} className="animate-spin" /> Processing…</>
-                        ) : (
-                          <>Place Order — ${subtotal.toFixed(2)} <ArrowRight size={18} /></>
-                        )}
-                      </button>
-                      <p className="text-center text-xs text-gray-400 mt-3 flex items-center justify-center gap-1">
-                        <Lock size={12} /> Redirected to Stripe's secure page
-                      </p>
                     </div>
                   ) : (
                     /* ── DIME / NMI ── */

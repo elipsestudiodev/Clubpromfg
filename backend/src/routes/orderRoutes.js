@@ -19,11 +19,8 @@ const { authenticateToken } = require("../middlewares/authMiddleware");
 //   stripeWebhook
 // );
 
-router.post(
-  "/checkout/stripe-session",
-  authenticateToken,
-  stripeSession
-);
+// [REMOVED - Stripe completely disabled]
+// router.post("/checkout/stripe-session", authenticateToken, stripeSession);
 
 router.get('/orders', getOrders);
 

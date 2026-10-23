@@ -21,17 +21,12 @@ function splitName(fullName) {
 // GET /api/payment/gateway-config
 // Returns { gateway: "stripe" | "dime", tokenizationKey?: string }
 exports.getGatewayConfig = (req, res) => {
-  const stripeEnabled = process.env.STRIPE_ENABLED === "true";
   const isBypass =
     process.env.BYPASS_PAYMENT === "true" ||
     process.env.NMI_BYPASS_PAYMENT === "true" ||
     process.env.DIME_BYPASS_PAYMENT === "true";
 
-  if (stripeEnabled && !isBypass) {
-    return res.json({ gateway: "stripe", bypassPayment: false });
-  }
-
-  // Return public tokenization key for Collect.js — never the private security_key
+  // System strictly uses Dime / NMI (Stripe completely removed)
   return res.json({
     gateway: "dime",
     tokenizationKey: process.env.DIME_TOKENIZATION_KEY,

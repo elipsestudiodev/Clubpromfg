@@ -12,7 +12,7 @@ const CheckoutPage = () => {
   const { cartItems, removeFromCart, clearCart } = useCart();
 
   /* ── Gateway state ──────────────────────────────────────── */
-  const [gateway, setGateway]           = useState(null);  // "stripe" | "dime"
+  const [gateway, setGateway]           = useState('dime');
   const [dimeTokenKey, setDimeTokenKey] = useState('');
   const [dimeGatewayUrl, setDimeGatewayUrl] = useState('https://dime.transactiongateway.com');
   const [gatewayLoading, setGatewayLoading] = useState(true);
@@ -22,9 +22,6 @@ const CheckoutPage = () => {
   const [processing, setProcessing]         = useState(false);
   const [dimeError, setDimeError]           = useState('');
   const [paySuccess, setPaySuccess]         = useState(false);
-
-  /* ── Stripe state ───────────────────────────────────────── */
-  const [stripeLoading, setStripeLoading] = useState(false);
 
   /* ── Shipping & Billing Address State ───────────────────── */
   const [shippingAddress, setShippingAddress] = useState({
@@ -181,14 +178,13 @@ const CheckoutPage = () => {
       try {
         const res  = await fetch(`${BASE_API}/payment/gateway-config`);
         const data = await res.json();
-        setGateway(data.gateway);
+        setGateway('dime');
         setBypassPayment(Boolean(data.bypassPayment));
-        if (data.gateway === 'dime') {
-          setDimeTokenKey(data.tokenizationKey || '');
-          setDimeGatewayUrl(data.gatewayUrl || 'https://dime.transactiongateway.com');
-        }
-      } catch {
-        setGateway('stripe'); // fallback
+        setDimeTokenKey(data.tokenizationKey || '');
+        setDimeGatewayUrl(data.gatewayUrl || 'https://dime.transactiongateway.com');
+      } catch (err) {
+        console.warn('Gateway config fetch fallback:', err);
+        setGateway('dime');
       } finally {
         setGatewayLoading(false);
       }
@@ -399,75 +395,6 @@ const CheckoutPage = () => {
       console.error('CollectJS startPaymentRequest error:', err);
       setDimeError('Failed to process payment request. Please check card details.');
       setProcessing(false);
-    }
-  };
-
-  /* ── Stripe handler ──────────────────────────────────────── */
-  const handleStripeCheckout = async () => {
-    if (!getAuthToken()) { navigate('/login'); return; }
-    if (cartItems.length === 0) { alert('Your cart is empty'); return; }
-
-    setStripeLoading(true);
-    try {
-      const res = await fetch(`${BASE_API}/checkout/stripe-session`, {
-        method:  'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization:  `Bearer ${getAuthToken()}`,
-        },
-        body: JSON.stringify({
-          items: cartItems.map((item) => ({
-            id:       item.id,
-            name:     item.name,
-            price:    getPriceAsNumber(item.price),
-            qty:      Number(item.quantity || 1),
-            quantity: Number(item.quantity || 1),
-          })),
-          shippingAddress: {
-            fullName: shippingAddress.fullName,
-            address1: shippingAddress.address1,
-            address2: shippingAddress.address2,
-            city:     shippingAddress.city,
-            state:    shippingAddress.state,
-            zip:      shippingAddress.zip,
-            country:  shippingAddress.country || 'US',
-            phone:    shippingAddress.phone,
-          },
-          billingAddress: {
-            firstName: shippingAddress.fullName?.trim().split(/\s+/)[0] || '',
-            lastName:  shippingAddress.fullName?.trim().split(/\s+/).slice(1).join(' ') || '',
-            address1:  shippingAddress.address1,
-            address2:  shippingAddress.address2,
-            city:      shippingAddress.city,
-            state:     shippingAddress.state,
-            zip:       shippingAddress.zip,
-            country:   shippingAddress.country || 'US',
-          },
-        }),
-      });
-
-      if (res.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        alert('Session expired. Please log in again.');
-        navigate('/login');
-        return;
-      }
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Failed to create checkout session');
-      }
-
-      const data = await res.json();
-      if (!data.url) throw new Error('No checkout URL received');
-
-      clearCart();
-      window.location.href = data.url;
-    } catch (err) {
-      alert(`Checkout failed: ${err.message}`);
-    } finally {
-      setStripeLoading(false);
     }
   };
 
@@ -742,32 +669,6 @@ const CheckoutPage = () => {
                     <div className="flex items-center justify-center py-10 gap-3 text-gray-400">
                       <Loader2 size={20} className="animate-spin" />
                       <span className="text-sm">Loading payment options…</span>
-                    </div>
-
-                  ) : gateway === 'stripe' ? (
-                    /* ── STRIPE ── */
-                    <div>
-                      <h3 className="font-semibold text-gray-800 text-sm mb-4 flex items-center gap-2">
-                        <CreditCard size={16} className="text-blue-500" /> Secure Payment via Stripe
-                      </h3>
-                      <button
-                        id="stripe-checkout-btn"
-                        onClick={handleStripeCheckout}
-                        disabled={stripeLoading}
-                        className="w-full py-4 bg-[#f9c821] hover:bg-yellow-500 active:bg-yellow-600
-                                   text-white font-bold rounded-xl transition-all shadow-md
-                                   flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed
-                                   text-base"
-                      >
-                        {stripeLoading ? (
-                          <><Loader2 size={18} className="animate-spin" /> Processing…</>
-                        ) : (
-                          <>Place Order — ${subtotal.toFixed(2)} <ArrowRight size={18} /></>
-                        )}
-                      </button>
-                      <p className="text-center text-xs text-gray-400 mt-3 flex items-center justify-center gap-1">
-                        <Lock size={12} /> Redirected to Stripe's secure page
-                      </p>
                     </div>
 
                   ) : (
