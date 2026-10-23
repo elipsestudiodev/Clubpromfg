@@ -42,6 +42,25 @@ const CheckoutPage = () => {
   const [shippingCost, setShippingCost] = useState(0);
   const [shippingServiceName, setShippingServiceName] = useState('');
   const [shippingLoading, setShippingLoading] = useState(false);
+  const [availableCountries, setAvailableCountries] = useState([
+    { code: 'US', name: 'United States' },
+    { code: 'CA', name: 'Canada' },
+    { code: 'GB', name: 'United Kingdom' },
+    { code: 'AU', name: 'Australia' },
+    { code: 'DE', name: 'Germany' },
+    { code: 'MX', name: 'Mexico' },
+  ]);
+
+  useEffect(() => {
+    fetch(`${BASE_API}/shipping/countries`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.countries) && data.countries.length > 0) {
+          setAvailableCountries(data.countries);
+        }
+      })
+      .catch((err) => console.warn('Could not load dynamic shipping countries:', err));
+  }, []);
 
   // Keep a stable ref to shippingAddress so submitDimeCharge doesn't change on every keystroke
   const shippingAddressRef = useRef(shippingAddress);
@@ -630,6 +649,22 @@ const CheckoutPage = () => {
                         className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-yellow-500 transition-colors"
                       />
                     </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                        Country *
+                      </label>
+                      <select
+                        value={shippingAddress.country || 'US'}
+                        onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-yellow-500 transition-colors bg-white font-medium"
+                      >
+                        {availableCountries.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
                         City *
@@ -670,23 +705,6 @@ const CheckoutPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
-                        Country *
-                      </label>
-                      <select
-                        value={shippingAddress.country || 'US'}
-                        onChange={(e) => setShippingAddress({ ...shippingAddress, country: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-yellow-500 transition-colors bg-white font-medium"
-                      >
-                        <option value="US">United States</option>
-                        <option value="CA">Canada</option>
-                        <option value="GB">United Kingdom</option>
-                        <option value="AU">Australia</option>
-                        <option value="MX">Mexico</option>
-                        <option value="DE">Germany</option>
-                      </select>
-                    </div>
-                    <div className="md:col-span-2">
                       <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
                         Phone Number
                       </label>

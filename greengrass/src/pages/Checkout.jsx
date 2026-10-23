@@ -44,6 +44,25 @@ export default function Checkout() {
   const [shippingCost, setShippingCost] = useState(0);
   const [shippingServiceName, setShippingServiceName] = useState('');
   const [shippingLoading, setShippingLoading] = useState(false);
+  const [availableCountries, setAvailableCountries] = useState([
+    { code: 'US', name: 'United States' },
+    { code: 'CA', name: 'Canada' },
+    { code: 'GB', name: 'United Kingdom' },
+    { code: 'AU', name: 'Australia' },
+    { code: 'DE', name: 'Germany' },
+    { code: 'MX', name: 'Mexico' },
+  ]);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/shipping/countries`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.countries) && data.countries.length > 0) {
+          setAvailableCountries(data.countries);
+        }
+      })
+      .catch((err) => console.warn('Could not load dynamic shipping countries:', err));
+  }, []);
 
   const subtotal = items.reduce(
     (total, item) => total + item.price * item.qty,

@@ -171,6 +171,7 @@ export default function Sidebar() {
           icon: UserRoundCog,
           subItems: [
             { name: 'Order List', path: '/admin/orders/list' },
+            { name: 'Shipping Countries', path: '/admin/shipping-countries' },
 
           ],
         },
