@@ -745,6 +745,7 @@ export default function Checkout() {
                       )}
 
                       {/* Shaded Inner Card Box */}
+                      {!bypassPayment ? (
                       <div className="bg-[#e9e8f0]/70 p-4 sm:p-5 rounded-2xl border border-gray-200/80 mb-5">
                         <p className="text-xs text-gray-500 mb-4 font-medium">
                           Pay with your credit card
@@ -782,6 +783,16 @@ export default function Checkout() {
                           </div>
                         </div>
                       </div>
+                      ) : (
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-5 text-center">
+                          <p className="text-amber-900 font-bold text-sm mb-1">
+                            Test Mode Active: No Card Details Required
+                          </p>
+                          <p className="text-amber-700 text-xs">
+                            Credit card charge is bypassed. Clicking the button below will immediately create the order in the database, decrement stock, and sync to Fishbowl.
+                          </p>
+                        </div>
+                      )}
 
                       {/* Pay button */}
                       <button

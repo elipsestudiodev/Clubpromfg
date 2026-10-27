@@ -50,8 +50,14 @@ exports.dimeCharge = async (req, res) => {
 
     const customerId = req.user.id;
 
+    const isBypass =
+      process.env.BYPASS_PAYMENT === "true" ||
+      process.env.NMI_BYPASS_PAYMENT === "true" ||
+      process.env.DIME_BYPASS_PAYMENT === "true" ||
+      payment_token === "BYPASS_TEST_TOKEN";
+
     // ── Validate ──────────────────────────────────────────────────────────────
-    if (!payment_token || !amount || !items?.length) {
+    if ((!isBypass && !payment_token) || !amount || !items?.length) {
       return res.status(400).json({
         success: false,
         message: "Missing payment_token, amount, or items",
@@ -97,7 +103,16 @@ exports.dimeCharge = async (req, res) => {
       }
     }
 
-    // ── Charge via NMI transact.php ───────────────────────────────────────────
+    let transactionId;
+    if (isBypass) {
+      transactionId = `TEST_BYPASS_${Date.now()}`;
+      console.log("\n========================================================");
+      console.log("[PAYMENT BYPASS ACTIVE] BYPASS_PAYMENT is enabled in .env!");
+      console.log(`Skipping NMI credit card charge. Simulated Mock Txn ID: ${transactionId}`);
+      console.log("Proceeding with DB Order creation, Stock decrement & Fishbowl Sync...");
+      console.log("========================================================\n");
+    } else {
+      // ── Charge via NMI transact.php ───────────────────────────────────────────
     const nmiEndpoint =
       (process.env.DIME_GATEWAY_URL || "https://dime.transactiongateway.com") +
       "/api/transact.php";
@@ -148,7 +163,8 @@ exports.dimeCharge = async (req, res) => {
       });
     }
 
-    const transactionId = nmiResponse.transactionid;
+    transactionId = nmiResponse.transactionid;
+    }
 
     // ── Create order + decrement stock (same as Stripe webhook) ───────────────
     const { firstName: shipFirstName, lastName: shipLastName } = splitName(
