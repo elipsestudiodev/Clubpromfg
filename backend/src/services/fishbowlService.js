@@ -170,11 +170,31 @@ class FishbowlService {
     }
   }
 
+  async partExists(partNumber) {
+    if (!partNumber || !this.isConfigured()) return false;
+    try {
+      const res = await this.request('GET', `/api/parts?number=${encodeURIComponent(partNumber)}`);
+      return Boolean(res && res.totalCount > 0 && Array.isArray(res.results) && res.results.length > 0);
+    } catch (err) {
+      console.warn(`[Fishbowl] Check part existence warning for "${partNumber}":`, err.response?.data?.message || err.message);
+      return false;
+    }
+  }
+
   async deactivateProduct(partNumber) {
     if (!partNumber || !this.isConfigured()) return;
     try {
+      console.log(`[Fishbowl] Checking if Part "${partNumber}" exists in Fishbowl before deactivating...`);
+      const exists = await this.partExists(partNumber);
+      if (!exists) {
+        console.log(`[Fishbowl Notice] Part "${partNumber}" does not exist in Fishbowl. Skipping deactivation.`);
+        return;
+      }
+
       console.log(`[Fishbowl] Deactivating Part & Product "${partNumber}"...`);
-      const partCsv = `"PartNumber","PartDescription","UOM","PartType","Active"\n"${partNumber}","${partNumber}","ea","Inventory","false"`;
+      const partHeader = '"PartNumber","PartDescription","UOM","PartType","Active","POItemType"';
+      const partRow = `"${partNumber}","${partNumber}","ea","Inventory","false","Purchase"`;
+      const partCsv = `${partHeader}\n${partRow}`;
       await this.importPart(partCsv);
 
       try {
