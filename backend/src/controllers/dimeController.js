@@ -95,6 +95,34 @@ exports.dimeCharge = async (req, res) => {
       if (!product) {
         return res.status(400).json({ success: false, message: `Product #${pId} not found` });
       }
+
+      // ── Live Fishbowl Inventory Check (Fishbowl as Single Source of Truth) ──
+      const partNumber = product.fishbowlPartNumber || product.sku;
+      if (fishbowl.isConfigured() && partNumber) {
+        try {
+          const liveStock = await fishbowl.getPartInventory(partNumber);
+          if (liveStock !== null) {
+            // Keep local DB and Dashboard synchronized with Fishbowl
+            if (product.stock !== liveStock) {
+              await prisma.product.update({
+                where: { id: pId },
+                data: { stock: liveStock },
+              });
+              product.stock = liveStock;
+            }
+
+            if (liveStock < totalQty) {
+              return res.status(400).json({
+                success: false,
+                message: `Insufficient stock in Fishbowl for "${product.name}". Available: ${liveStock}, Requested: ${totalQty}`,
+              });
+            }
+          }
+        } catch (fbErr) {
+          console.warn(`[Fishbowl Pre-Order Stock Check Warning for ${partNumber}]:`, fbErr.message);
+        }
+      }
+
       if (product.stock < totalQty) {
         return res.status(400).json({
           success: false,

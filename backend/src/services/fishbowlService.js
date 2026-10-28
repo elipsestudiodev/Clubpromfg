@@ -212,7 +212,7 @@ class FishbowlService {
   // 2. Customer Import
   // ─────────────────────────────────────────────────────────────
   async importCustomer(csvString) {
-    return this.request('POST', '/api/import/Customer', csvString, {
+    return this.request('POST', '/api/import/Customers', csvString, {
       contentType: 'text/plain',
     });
   }
@@ -300,10 +300,18 @@ class FishbowlService {
       const shipToZip = clean(shippingAddress.zip || order.shipZip || customer.commercialZip || customer.billingZip || '');
       const shipToCountry = clean(shippingAddress.country || order.shipCountry || customer.commercialCountry || customer.billingCountry || 'US');
 
-      // CSV Header formatted for Fishbowl Sales Order import
-      const header = `"SONum","CustomerName","Date","BillToName","BillToAddress","BillToCity","BillToState","BillToZip","BillToCountry","ShipToName","ShipToAddress","ShipToCity","ShipToState","ShipToZip","ShipToCountry","ItemNumber","ItemDescription","Quantity","Price","UOM"`;
-
+      // Fishbowl Sales Order CSV format (Flag-based: "SO" for header, "Item" for items)
       const rows = [];
+
+      // 1. Order Header Row (Flag: "SO")
+      // Columns: Flag,SONum,Status,CustomerName,CustomerContact,BillToName,BillToAddress,BillToCity,BillToState,BillToZip,BillToCountry,ShipToName,ShipToAddress,ShipToCity,ShipToState,ShipToZip,ShipToCountry,CarrierName,Date
+      rows.push(
+        `"SO","${soNum}","20","${customerName}","","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","UPS Ground","${dateStr}"`
+      );
+
+      // 2. Line Item Rows (Flag: "Item")
+      // Columns: Flag,SONum,LineNumber,PartNumber,ProductDescription,Quantity,UOM,Price
+      let lineNum = 1;
       for (const item of items) {
         const product = await prisma.product.findUnique({
           where: { id: Number(item.id || item.productId) },
@@ -327,25 +335,26 @@ class FishbowlService {
         const price = Number(item.price || item.priceAtOrder || product.regularPrice).toFixed(2);
 
         rows.push(
-          `"${soNum}","${customerName}","${dateStr}","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","${partNumber}","${itemName}","${qty}","${price}","ea"`
+          `"Item","${soNum}","${lineNum * 10}","${partNumber}","${itemName}","${qty}","ea","${price}"`
         );
+        lineNum++;
       }
 
-      // Add Shipping charge line item (Client SOP: "shipping charge follows with the order from start to finish")
+      // 3. Shipping Charge Line Item (if applicable)
       const shipmentCostNum = parseFloat(order.shipmentCost || 0);
       if (shipmentCostNum > 0) {
         const shipCost = shipmentCostNum.toFixed(2);
         rows.push(
-          `"${soNum}","${customerName}","${dateStr}","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","Shipping","Shipping & Handling","1","${shipCost}","ea"`
+          `"Item","${soNum}","${lineNum * 10}","Shipping","Shipping & Handling","1","ea","${shipCost}"`
         );
       }
 
-      if (rows.length === 0) {
+      if (rows.length <= 1) {
         console.warn('[Fishbowl] No line items found for order:', order.id);
         return null;
       }
 
-      const soCSV = `${header}\n${rows.join('\n')}`;
+      const soCSV = rows.join('\n');
       console.log(`[Fishbowl] Sending Sales Order CSV to Fishbowl:\n${soCSV}`);
 
       await this.importSalesOrder(soCSV);
