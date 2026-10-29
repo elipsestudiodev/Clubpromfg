@@ -265,6 +265,16 @@ class FishbowlService {
     try {
       console.log(`\n========== [FISHBOWL] Syncing Sales Order for Order #${order.id} ==========`);
 
+      // Duplicate guard: never create a second Sales Order for the same website order
+      const existing = await prisma.order.findUnique({
+        where: { id: order.id },
+        select: { fishbowlSalesOrderNumber: true },
+      });
+      if (existing?.fishbowlSalesOrderNumber) {
+        console.log(`[Fishbowl] Order #${order.id} already synced as SO ${existing.fishbowlSalesOrderNumber}. Skipping.`);
+        return existing.fishbowlSalesOrderNumber;
+      }
+
       // 1. Ensure customer is synced
       let fbCustomerNum = customer.fishbowlCustomerNumber;
       if (!fbCustomerNum) {
@@ -314,8 +324,8 @@ class FishbowlService {
       );
 
       // 2. Line Item Rows (Flag: "Item")
-      // Columns: Flag,SONum,LineNumber,PartNumber,ProductDescription,Quantity,UOM,Price
-      let lineNum = 1;
+      // Fishbowl format: Flag,SOItemTypeID,ProductNumber,ProductDescription,ProductQuantity,UOM,ProductPrice,Taxable
+      // SOItemTypeID: 10 = Sale, 11 = Misc. Sale, 60 = Shipping
       for (const item of items) {
         const product = await prisma.product.findUnique({
           where: { id: Number(item.id || item.productId) },
@@ -339,17 +349,22 @@ class FishbowlService {
         const price = Number(item.price || item.priceAtOrder || product.regularPrice).toFixed(2);
 
         rows.push(
-          `"Item","${soNum}","${lineNum * 10}","${partNumber}","${itemName}","${qty}","ea","${price}"`
+          `"Item","10","${clean(partNumber)}","${itemName}","${qty}","ea","${price}","false"`
         );
-        lineNum++;
       }
 
       // 3. Shipping Charge Line Item (if applicable)
+      // If FISHBOWL_SHIPPING_PRODUCT is set (a Fishbowl product of type "Shipping"), use a proper
+      // Shipping line (type 60). Otherwise use a Misc. Sale line (type 11) which needs no product.
       const shipmentCostNum = parseFloat(order.shipmentCost || 0);
       if (shipmentCostNum > 0) {
         const shipCost = shipmentCostNum.toFixed(2);
+        const shipProduct = clean(process.env.FISHBOWL_SHIPPING_PRODUCT || '');
+        const shipDesc = clean(`Shipping & Handling${shippingAddress.shippingServiceName ? ` - ${shippingAddress.shippingServiceName}` : ''}`);
         rows.push(
-          `"Item","${soNum}","${lineNum * 10}","Shipping","Shipping & Handling","1","ea","${shipCost}"`
+          shipProduct
+            ? `"Item","60","${shipProduct}","${shipDesc}","1","ea","${shipCost}","false"`
+            : `"Item","11","","${shipDesc}","1","ea","${shipCost}","false"`
         );
       }
 
