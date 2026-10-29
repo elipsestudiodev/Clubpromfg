@@ -216,7 +216,7 @@ export default function ShippingSettingsPage() {
                 {carrierMode === "FEDEX" && <CheckCircle2 className="h-5 w-5 text-primary" />}
               </div>
               <Badge variant="secondary" className="mb-2 text-xs bg-purple-100 text-purple-800">
-                Client SOP Preferred
+                SOP Preferred
               </Badge>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Quotes live negotiated contractual rates using account #740980114. 99.9% cheaper than standard commercial rates.
