@@ -716,12 +716,6 @@ const syncInventoryFromFishbowl = async (req, res) => {
     return res.status(500).json({ success: false, message: "Failed to sync inventory from Fishbowl", error: err.message });
   }
 };
-    });
-  } catch (err) {
-    console.error("Fishbowl inventory sync error:", err);
-    return res.status(500).json({ success: false, message: "Failed to sync inventory from Fishbowl", error: err.message });
-  }
-};
 
 module.exports = {
   importProductsFromCSV,
