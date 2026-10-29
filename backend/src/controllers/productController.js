@@ -649,36 +649,58 @@ const syncInventoryFromFishbowl = async (req, res) => {
       return res.status(404).json({ success: false, message: "No matching products found to sync." });
     }
 
+    const partNumbers = products
+      .map((p) => p.fishbowlPartNumber || p.sku)
+      .filter(Boolean);
+
+    // Fast batch query for all products at once using Fishbowl Available stock
+    const invMap = await fishbowl.getInventoryForParts(partNumbers);
+
     const results = [];
     let updatedCount = 0;
-    let fbUnreachable = false;
 
     for (const prod of products) {
-      const partNumber = prod.fishbowlPartNumber || prod.sku;
+      const partNumber = (prod.fishbowlPartNumber || prod.sku)?.trim();
       if (!partNumber) continue;
 
-      if (fbUnreachable) {
-        results.push({ id: prod.id, name: prod.name, partNumber, stock: prod.stock, status: "SKIPPED_FB_UNREACHABLE" });
-        continue;
-      }
-
-      try {
-        const liveQty = await fishbowl.getPartInventory(partNumber);
-        if (liveQty !== null && liveQty !== prod.stock) {
+      const inv = invMap.get(partNumber.toUpperCase());
+      if (inv) {
+        const liveQty = inv.available;
+        if (liveQty !== prod.stock) {
           await prisma.product.update({
             where: { id: prod.id },
             data: { stock: liveQty },
           });
-          results.push({ id: prod.id, name: prod.name, partNumber, oldStock: prod.stock, newStock: liveQty, status: "UPDATED" });
+          results.push({
+            id: prod.id,
+            name: prod.name,
+            partNumber,
+            oldStock: prod.stock,
+            newStock: liveQty,
+            onHand: inv.onHand,
+            allocated: inv.allocated,
+            status: "UPDATED",
+          });
           updatedCount++;
-        } else if (liveQty !== null) {
-          results.push({ id: prod.id, name: prod.name, partNumber, stock: liveQty, status: "UP_TO_DATE" });
         } else {
-          results.push({ id: prod.id, name: prod.name, partNumber, stock: prod.stock, status: "SKIPPED_NOT_FOUND_OR_OFFLINE" });
+          results.push({
+            id: prod.id,
+            name: prod.name,
+            partNumber,
+            stock: liveQty,
+            onHand: inv.onHand,
+            allocated: inv.allocated,
+            status: "UP_TO_DATE",
+          });
         }
-      } catch (err) {
-        fbUnreachable = true; // Avoid slow timeouts for all subsequent products if Fishbowl server is down
-        results.push({ id: prod.id, name: prod.name, partNumber, error: err.message, status: "ERROR_FB_OFFLINE" });
+      } else {
+        results.push({
+          id: prod.id,
+          name: prod.name,
+          partNumber,
+          stock: prod.stock,
+          status: "NOT_FOUND_IN_FB",
+        });
       }
     }
 
@@ -688,6 +710,12 @@ const syncInventoryFromFishbowl = async (req, res) => {
       totalChecked: products.length,
       updatedCount,
       results,
+    });
+  } catch (err) {
+    console.error("Fishbowl inventory sync error:", err);
+    return res.status(500).json({ success: false, message: "Failed to sync inventory from Fishbowl", error: err.message });
+  }
+};
     });
   } catch (err) {
     console.error("Fishbowl inventory sync error:", err);

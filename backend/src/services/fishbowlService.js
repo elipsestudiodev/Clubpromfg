@@ -8,6 +8,8 @@ class FishbowlService {
     this.baseURL = process.env.FISHBOWL_API_URL;
     this.token = null;
     this.tokenExpiry = null;
+    this._loginPromise = null;   // single-flight login (avoid parallel logins eating Fishbowl seats)
+    this._tokenLoaded = false;   // whether we already tried loading the persisted token from DB
   }
 
   isConfigured() {
@@ -18,44 +20,106 @@ class FishbowlService {
     );
   }
 
-  async login() {
+  // ─────────────────────────────────────────────────────────────
+  // Token persistence (DB) — token survives backend restarts, so we
+  // don't create a new Fishbowl session on every restart/request.
+  // Table is created automatically (no Prisma migration required).
+  // ─────────────────────────────────────────────────────────────
+  async _ensureSessionTable() {
+    if (this._tableReady) return;
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS fishbowl_session (
+        id INT PRIMARY KEY,
+        token TEXT NULL,
+        session_id VARCHAR(255) NULL,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    this._tableReady = true;
+  }
+
+  async _loadStoredToken() {
+    if (this._tokenLoaded) return this.token;
+    this._tokenLoaded = true;
+    try {
+      await this._ensureSessionTable();
+      const rows = await prisma.$queryRawUnsafe('SELECT token FROM fishbowl_session WHERE id = 1');
+      if (rows?.[0]?.token) {
+        this.token = rows[0].token;
+        console.log('[Fishbowl] Reusing stored session token from database');
+      }
+    } catch (err) {
+      console.warn('[Fishbowl] Could not load stored token:', err.message);
+    }
+    return this.token;
+  }
+
+  async _saveToken(token, sessionId = null) {
+    try {
+      await this._ensureSessionTable();
+      await prisma.$executeRawUnsafe(
+        'INSERT INTO fishbowl_session (id, token, session_id) VALUES (1, ?, ?) ON DUPLICATE KEY UPDATE token = VALUES(token), session_id = VALUES(session_id)',
+        token,
+        sessionId
+      );
+    } catch (err) {
+      console.warn('[Fishbowl] Could not persist token:', err.message);
+    }
+  }
+
+  async login({ force = false } = {}) {
     if (!this.isConfigured()) {
       throw new Error('Fishbowl credentials or API URL missing in .env');
     }
 
-    if (this.token) return this.token;
-
-    try {
-      console.log(`[Fishbowl] Authenticating with ${this.baseURL}...`);
-      const response = await axios.post(
-        `${this.baseURL}/api/login`,
-        {
-          appName: 'ClubProEcom',
-          appDescription: 'E-commerce Integration with Prisma & WorldShip',
-          appId: 45821,
-          username: process.env.FISHBOWL_USERNAME,
-          password: process.env.FISHBOWL_PASSWORD,
-        },
-        { timeout: 10000 }
-      );
-
-      if (!response.data?.token) {
-        throw new Error('No token received from Fishbowl API');
-      }
-
-      this.token = response.data.token;
-      console.log('[Fishbowl] Login successful');
-      return this.token;
-    } catch (err) {
-      console.error('[Fishbowl] Login failed:', err.response?.data || err.message);
-      throw new Error(`Fishbowl authentication failed: ${err.message}`);
+    if (!force) {
+      if (this.token) return this.token;
+      await this._loadStoredToken();
+      if (this.token) return this.token;
     }
+
+    // Single-flight: if a login is already running, wait for it instead of opening another session
+    if (this._loginPromise) return this._loginPromise;
+
+    this._loginPromise = (async () => {
+      try {
+        console.log(`[Fishbowl] Authenticating with ${this.baseURL}...`);
+        const response = await axios.post(
+          `${this.baseURL}/api/login`,
+          {
+            appName: 'ClubProEcom',
+            appDescription: 'E-commerce Integration with Prisma & WorldShip',
+            appId: 45821,
+            username: process.env.FISHBOWL_USERNAME,
+            password: process.env.FISHBOWL_PASSWORD,
+          },
+          { timeout: 15000 }
+        );
+
+        if (!response.data?.token) {
+          throw new Error('No token received from Fishbowl API');
+        }
+
+        this.token = response.data.token;
+        await this._saveToken(this.token, response.data.sessionId ? String(response.data.sessionId) : null);
+        console.log('[Fishbowl] Login successful (token stored in database)');
+        return this.token;
+      } catch (err) {
+        console.error('[Fishbowl] Login failed:', err.response?.data || err.message);
+        throw new Error(`Fishbowl authentication failed: ${err.message}`);
+      } finally {
+        this._loginPromise = null;
+      }
+    })();
+
+    return this._loginPromise;
   }
 
   async logout() {
     if (!this.token) return;
     const tokenToLogout = this.token;
     this.token = null;
+    await this._saveToken(null, null);
     try {
       await axios.post(
         `${this.baseURL}/api/logout`,
@@ -77,6 +141,8 @@ class FishbowlService {
       return null;
     }
 
+    const { contentType, _isRetry, ...extraHeaders } = customHeaders;
+
     if (!this.token) {
       await this.login();
     }
@@ -86,20 +152,22 @@ class FishbowlService {
       url: `${this.baseURL}${endpoint}`,
       headers: {
         Authorization: `Bearer ${this.token}`,
-        'Content-Type': customHeaders.contentType || 'application/json',
-        ...customHeaders,
+        'Content-Type': contentType || 'application/json',
+        ...extraHeaders,
       },
       data,
-      timeout: 15000,
+      timeout: 20000,
     };
 
     try {
       const res = await axios(config);
       return res.data;
     } catch (err) {
-      if (err.response?.status === 401 && !customHeaders._isRetry) {
-        console.log('[Fishbowl] Token expired, re-logging in...');
+      // Session expired / invalidated → re-login once and retry transparently
+      if (err.response?.status === 401 && !_isRetry) {
+        console.log('[Fishbowl] Session expired, re-logging in automatically...');
         this.token = null;
+        await this.login({ force: true });
         return this.request(method, endpoint, data, { ...customHeaders, _isRetry: true });
       }
 
@@ -414,18 +482,52 @@ class FishbowlService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 5. Get Inventory Stock for a Part from Fishbowl
+  // 5. Get Inventory Stock for Parts from Fishbowl
+  //    Uses AVAILABLE quantity = On Hand − Allocated − Not Available
+  //    (same as "Available" in Fishbowl Part → Inventory tab).
+  //    /api/parts/inventory only returns On Hand, which ignores stock
+  //    already allocated to open Sales Orders → overselling risk.
   // ─────────────────────────────────────────────────────────────
+  async getInventoryForParts(partNumbers = []) {
+    const result = new Map();
+    const unique = [...new Set(partNumbers.filter(Boolean).map((p) => String(p).trim()))];
+    if (!unique.length || !this.isConfigured()) return result;
+
+    const CHUNK = 200;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const chunk = unique.slice(i, i + CHUNK);
+      const inList = chunk.map((p) => `'${p.replace(/'/g, "''")}'`).join(',');
+      const sql =
+        'SELECT p.num AS num, COALESCE(SUM(q.qtyOnHand),0) AS onHand, COALESCE(SUM(q.qtyAllocated),0) AS allocated, ' +
+        'COALESCE(SUM(q.qtyNotAvailable),0) AS notAvailable ' +
+        `FROM part p LEFT JOIN qtyinventorytotals q ON q.partId = p.id WHERE p.num IN (${inList}) GROUP BY p.num`;
+
+      const rows = await this.request('GET', '/api/data-query', sql, { contentType: 'text/plain' });
+      for (const row of rows || []) {
+        const onHand = Number(row.onHand || 0);
+        const allocated = Number(row.allocated || 0);
+        const notAvailable = Number(row.notAvailable || 0);
+        result.set(String(row.num).toUpperCase(), {
+          onHand,
+          allocated,
+          notAvailable,
+          available: Math.max(0, Math.floor(onHand - allocated - notAvailable)),
+        });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Returns AVAILABLE quantity for a single part, or null if the part
+   * does not exist in Fishbowl / Fishbowl is unreachable.
+   */
   async getPartInventory(partNumber) {
     if (!partNumber || !this.isConfigured()) return null;
     try {
-      const res = await this.request('GET', `/api/parts/inventory?number=${encodeURIComponent(partNumber)}`);
-      // Fishbowl API returns results array with quantity or on-hand
-      const qty = res?.results?.[0]?.quantity ?? res?.quantity ?? res?.qtyOnHand ?? res?.results?.[0]?.qtyOnHand;
-      if (qty !== undefined && qty !== null && !isNaN(Number(qty))) {
-        return Math.max(0, parseInt(qty, 10));
-      }
-      return null;
+      const map = await this.getInventoryForParts([partNumber]);
+      const inv = map.get(String(partNumber).trim().toUpperCase());
+      return inv ? inv.available : null;
     } catch (err) {
       console.warn(`[Fishbowl Inventory Warning] Could not fetch stock for "${partNumber}":`, err.response?.data || err.message);
       return null;

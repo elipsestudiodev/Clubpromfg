@@ -122,8 +122,11 @@ app.use("/api/shipping", shippingRoutes);
 
 
 
+const { startInventorySyncJob } = require("./src/jobs/inventorySyncJob");
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  startInventorySyncJob();
 });
 
 process.on("SIGTERM", () => {
