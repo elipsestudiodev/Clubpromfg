@@ -190,3 +190,4 @@ class ShippingSettingsService {
 }
 
 module.exports = new ShippingSettingsService();
+
