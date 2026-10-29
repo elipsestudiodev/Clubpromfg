@@ -110,11 +110,11 @@ export default function AddProduct() {
 
         if (res.data.alreadyExists) {
           toast.warning(
-            `Loaded from Fishbowl! Note: SKU "${d.sku}" already exists in Dashboard (${res.data.existingProduct?.name}).`
+            `Product with SKU "${d.sku}" already exists in the dashboard (${res.data.existingProduct?.name}).`
           );
         } else {
           toast.success(
-            `Loaded from Fishbowl! Stock: ${d.stock} (On Hand: ${d.onHand}, Allocated: ${d.allocated}), Price: $${d.regularPrice}. Now select Brand, Model, Type & upload images.`
+            `Product details imported from Fishbowl (Stock: ${d.stock}, Price: $${d.regularPrice}).`
           );
         }
       }
@@ -312,51 +312,51 @@ export default function AddProduct() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* ── Fishbowl Quick Autofill Banner ─────────────────────── */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Sparkles className="h-4 w-4 text-blue-600" />
-                    <span className="font-semibold text-sm text-blue-900">
-                      Autofill from Fishbowl ERP
-                    </span>
-                    <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                      SOP Recommended
-                    </span>
-                  </div>
-                  <p className="text-xs text-blue-700 mb-3">
-                    Fishbowl mein create kiya hua Part Number enter karein — Name, SKU, Description, Price, Dimensions aur Available Stock automatically load ho jayenge.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Input
-                      placeholder="e.g. TEST-ENC-005 or BC20B-DRV"
-                      value={fishbowlLookupSku}
-                      onChange={(e) => setFishbowlLookupSku(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleFishbowlLookup();
-                        }
-                      }}
-                      className="bg-white border-blue-300 focus:border-blue-500 font-mono text-sm"
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleFishbowlLookup}
-                      disabled={isFetchingFishbowl || !fishbowlLookupSku.trim()}
-                      className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 font-medium"
-                    >
-                      {isFetchingFishbowl ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Fetching Fishbowl...
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="mr-2 h-4 w-4" />
-                          Fetch from Fishbowl
-                        </>
-                      )}
-                    </Button>
+                {/* ── Fishbowl Quick Autofill ─────────────────────────────── */}
+                <div className="rounded-lg border bg-muted/40 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 font-medium text-sm text-foreground">
+                        <Zap className="h-4 w-4 text-primary" />
+                        <span>Autofill from Fishbowl</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Prefill product details, dimensions, price, and stock directly from Fishbowl ERP.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 sm:w-auto w-full">
+                      <Input
+                        placeholder="Fishbowl Part # (e.g. TEST-ENC-005)"
+                        value={fishbowlLookupSku}
+                        onChange={(e) => setFishbowlLookupSku(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleFishbowlLookup();
+                          }
+                        }}
+                        className="h-9 sm:w-64 bg-background font-mono text-xs uppercase"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleFishbowlLookup}
+                        disabled={isFetchingFishbowl || !fishbowlLookupSku.trim()}
+                        className="h-9 shrink-0 gap-1.5"
+                      >
+                        {isFetchingFishbowl ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-3.5 w-3.5" />
+                            Autofill
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
