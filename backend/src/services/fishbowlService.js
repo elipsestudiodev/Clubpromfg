@@ -534,6 +534,50 @@ class FishbowlService {
     }
   }
 
+  /**
+   * Returns available inventory breakdown by warehouse location (NY vs. DR).
+   */
+  async getPartStockByLocation(partNumber) {
+    if (!partNumber || !this.isConfigured()) return { ny: null, dr: null };
+    try {
+      const cleanNum = String(partNumber).trim();
+      const sql =
+        'SELECT p.num AS num, COALESCE(lg.name, "Default") AS locGroup, ' +
+        'COALESCE(SUM(q.qtyOnHand),0) AS onHand, COALESCE(SUM(q.qtyAllocated),0) AS allocated, ' +
+        'COALESCE(SUM(q.qtyNotAvailable),0) AS notAvailable ' +
+        'FROM part p ' +
+        'LEFT JOIN qtyinventorytotals q ON q.partId = p.id ' +
+        'LEFT JOIN locationgroup lg ON lg.id = q.locationGroupId ' +
+        `WHERE p.num = '${cleanNum.replace(/'/g, "''")}' ` +
+        'GROUP BY p.num, lg.name';
+
+      const rows = await this.request('GET', '/api/data-query', sql, { contentType: 'text/plain' });
+      let nyAvailable = 0;
+      let drAvailable = 0;
+      let found = false;
+
+      for (const r of rows || []) {
+        found = true;
+        const onHand = Number(r.onHand || 0);
+        const allocated = Number(r.allocated || 0);
+        const notAvailable = Number(r.notAvailable || 0);
+        const avail = Math.max(0, Math.floor(onHand - allocated - notAvailable));
+
+        const loc = String(r.locGroup || '').toUpperCase();
+        if (loc.includes('DR') || loc.includes('DOMINICAN')) {
+          drAvailable += avail;
+        } else {
+          nyAvailable += avail;
+        }
+      }
+
+      return found ? { ny: nyAvailable, dr: drAvailable } : { ny: null, dr: null };
+    } catch (err) {
+      console.warn(`[Fishbowl] Location stock check failed for "${partNumber}":`, err.message);
+      return { ny: null, dr: null };
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────
   // 6. Get Complete Part & Product Details for Admin Product Creation
   // ─────────────────────────────────────────────────────────────

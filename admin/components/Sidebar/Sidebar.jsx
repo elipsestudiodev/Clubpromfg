@@ -172,6 +172,7 @@ export default function Sidebar() {
           subItems: [
             { name: 'Order List', path: '/admin/orders/list' },
             { name: 'Shipping Countries', path: '/admin/shipping-countries' },
+            { name: 'Shipping & Logistics Settings', path: '/admin/shipping-settings' },
 
           ],
         },

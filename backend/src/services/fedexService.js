@@ -13,7 +13,18 @@ class FedExService {
       : 'https://apis-sandbox.fedex.com';
   }
 
-  getShipperDetails() {
+  getShipperDetails(fromAddress = null) {
+    if (fromAddress && fromAddress.address) {
+      return {
+        accountNumber: process.env.FEDEX_ACCOUNT_NUMBER || '740980114',
+        name: fromAddress.name || 'Club Pro MFG',
+        address: fromAddress.address,
+        city: fromAddress.city,
+        state: fromAddress.state,
+        zip: fromAddress.zip,
+        country: fromAddress.country || 'US',
+      };
+    }
     return {
       accountNumber: process.env.FEDEX_ACCOUNT_NUMBER || '740980114',
       name: process.env.UPS_SHIPPER_NAME || 'Club Pro MFG',
@@ -74,10 +85,10 @@ class FedExService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 2. Fetch Live International Rating Quotes
+  // 2. Fetch Live Rating Quotes (Domestic & International)
   // ─────────────────────────────────────────────────────────────
-  async getLiveRates({ toAddress, packages = [] }) {
-    const shipper = this.getShipperDetails();
+  async getLiveRates({ toAddress, packages = [], fromAddress = null }) {
+    const shipper = this.getShipperDetails(fromAddress);
     const token = await this.getAccessToken();
     const baseUrl = this.getEnvironment();
 

@@ -7,6 +7,8 @@ const {
   createCountry,
   updateCountry,
   deleteCountry,
+  getShippingSettings,
+  updateShippingSettings,
 } = require('../controllers/shippingController');
 
 // Rate calculation (public, called during checkout)
@@ -20,5 +22,9 @@ router.get('/admin/countries', getAllCountries);
 router.post('/admin/countries', createCountry);
 router.put('/admin/countries/:id', updateCountry);
 router.delete('/admin/countries/:id', deleteCountry);
+
+// Admin Shipping Engine & Logistics Settings (Carrier Mode, Markups, Origins, Box Variants)
+router.get('/admin/settings', getShippingSettings);
+router.put('/admin/settings', updateShippingSettings);
 
 module.exports = router;

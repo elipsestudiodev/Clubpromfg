@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const shippingService = require('../services/shippingService');
+const shippingSettings = require('../services/shippingSettingsService');
 
 const prisma = new PrismaClient();
 
@@ -29,8 +30,11 @@ exports.calculateRate = async (req, res) => {
       carrier: rateResult.carrier,
       serviceName: rateResult.serviceName,
       isInternational: rateResult.isInternational,
-      parcel: rateResult.parcel,
-      rates: rateResult.rates || [],
+      packages: rateResult.packages || [],
+      originLegs: rateResult.originLegs || [],
+      rateShoppingComparison: rateResult.rateShoppingComparison || null,
+      markupPercentApplied: rateResult.markupPercentApplied,
+      handlingFeeApplied: rateResult.handlingFeeApplied,
     });
   } catch (err) {
     console.error('[Shipping Controller] Error calculating rate:', err);
@@ -222,6 +226,49 @@ exports.deleteCountry = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to delete country.',
+      error: err.message,
+    });
+  }
+};
+
+/**
+ * GET /api/shipping/admin/settings
+ * Admin endpoint to get carrier mode, markups, origins, and box variants
+ */
+exports.getShippingSettings = async (req, res) => {
+  try {
+    const settings = await shippingSettings.getSettings();
+    return res.status(200).json({
+      success: true,
+      settings,
+    });
+  } catch (err) {
+    console.error('[Shipping Controller] Error fetching settings:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load shipping settings.',
+      error: err.message,
+    });
+  }
+};
+
+/**
+ * PUT /api/shipping/admin/settings
+ * Admin endpoint to update carrier mode, markups, origins, and box variants
+ */
+exports.updateShippingSettings = async (req, res) => {
+  try {
+    const updated = await shippingSettings.updateSettings(req.body);
+    return res.status(200).json({
+      success: true,
+      message: 'Shipping settings updated successfully.',
+      settings: updated,
+    });
+  } catch (err) {
+    console.error('[Shipping Controller] Error updating settings:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update shipping settings.',
       error: err.message,
     });
   }

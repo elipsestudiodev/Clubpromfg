@@ -13,14 +13,25 @@ class UpsService {
       : 'https://wwwcie.ups.com';
   }
 
-  getShipperDetails() {
+  getShipperDetails(fromAddress = null) {
+    if (fromAddress && fromAddress.address) {
+      return {
+        accountNumber: process.env.UPS_ACCOUNT_NUMBER || '80E8E8',
+        name: fromAddress.name || 'Club Pro MFG',
+        address: fromAddress.address,
+        city: fromAddress.city,
+        state: fromAddress.state,
+        zip: fromAddress.zip,
+        country: fromAddress.country || 'US',
+      };
+    }
     return {
       accountNumber: process.env.UPS_ACCOUNT_NUMBER || '80E8E8',
       name: process.env.UPS_SHIPPER_NAME || 'Club Pro MFG',
-      address: process.env.UPS_SHIPPER_ADDRESS || '123 Test Street',
-      city: process.env.UPS_SHIPPER_CITY || 'Tampa',
-      state: process.env.UPS_SHIPPER_STATE || 'FL',
-      zip: process.env.UPS_SHIPPER_ZIP || '33619',
+      address: process.env.UPS_SHIPPER_ADDRESS || '10 Lucon Drive',
+      city: process.env.UPS_SHIPPER_CITY || 'DEER PARK',
+      state: process.env.UPS_SHIPPER_STATE || 'NY',
+      zip: process.env.UPS_SHIPPER_ZIP || '11729',
       country: process.env.UPS_SHIPPER_COUNTRY || 'US',
     };
   }
@@ -92,8 +103,8 @@ class UpsService {
   // ─────────────────────────────────────────────────────────────
   // 2. Fetch Live Rating (Shop all available rates)
   // ─────────────────────────────────────────────────────────────
-  async getLiveRates({ toAddress, packages = [] }) {
-    const shipper = this.getShipperDetails();
+  async getLiveRates({ toAddress, packages = [], fromAddress = null }) {
+    const shipper = this.getShipperDetails(fromAddress);
     const token = await this.getAccessToken();
     const baseUrl = this.getEnvironment();
 
