@@ -131,12 +131,15 @@ exports.dimeCharge = async (req, res) => {
       }
     }
 
+    const shippingCost = parseFloat(shippingAddress?.shippingCost || 0);
+
     let transactionId;
     if (isBypass) {
       transactionId = `TEST_BYPASS_${Date.now()}`;
       console.log("\n========================================================");
       console.log("[PAYMENT BYPASS ACTIVE] BYPASS_PAYMENT is enabled in .env!");
       console.log(`Skipping NMI credit card charge. Simulated Mock Txn ID: ${transactionId}`);
+      console.log(`Order Amount: $${parseFloat(amount).toFixed(2)} (Subtotal: $${(parseFloat(amount) - shippingCost).toFixed(2)} + Shipping: $${shippingCost.toFixed(2)})`);
       console.log("Proceeding with DB Order creation, Stock decrement & Fishbowl Sync...");
       console.log("========================================================\n");
     } else {
@@ -150,6 +153,7 @@ exports.dimeCharge = async (req, res) => {
       type:          "sale",
       payment_token, // tokenized card data from Collect.js
       amount:        parseFloat(amount).toFixed(2),
+      shipping:      shippingCost.toFixed(2),
       // billing
       first_name:    billingAddress.firstName || customer.fullName?.split(" ")[0] || "",
       last_name:     billingAddress.lastName  || customer.fullName?.split(" ").slice(1).join(" ") || "",
@@ -204,7 +208,6 @@ exports.dimeCharge = async (req, res) => {
       (acc, item) => acc + Number(item.price) * item.qty,
       0
     );
-    const shippingCost = parseFloat(shippingAddress.shippingCost || 0);
 
     let order;
     try {

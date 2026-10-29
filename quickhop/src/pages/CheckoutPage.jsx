@@ -69,6 +69,17 @@ const CheckoutPage = () => {
     shippingAddressRef.current = shippingAddress;
   }, [shippingAddress]);
 
+  const shippingCostRef = useRef(0);
+  const shippingServiceNameRef = useRef('');
+
+  useEffect(() => {
+    shippingCostRef.current = shippingCost;
+  }, [shippingCost]);
+
+  useEffect(() => {
+    shippingServiceNameRef.current = shippingServiceName;
+  }, [shippingServiceName]);
+
   // Prefill shipping address from logged in user profile / localStorage
   useEffect(() => {
     const loadProfile = async () => {
@@ -201,11 +212,18 @@ const CheckoutPage = () => {
     }
 
     const currentShipping = shippingAddressRef.current;
+    const currentShippingCost = Number(shippingCostRef.current || 0);
+    const currentShippingService = shippingServiceNameRef.current || 'Standard Shipping';
+    const currentSubtotal = cartItems.reduce(
+      (total, item) => total + getPriceAsNumber(item.price) * Number(item.quantity || 1),
+      0
+    );
+    const calculatedTotal = (currentSubtotal + currentShippingCost).toFixed(2);
 
     try {
       const payload = {
         payment_token: paymentToken,
-        amount: finalTotal.toFixed(2),
+        amount: calculatedTotal,
         items: cartItems.map((item) => ({
           id:    item.id,
           name:  item.name,
@@ -221,8 +239,8 @@ const CheckoutPage = () => {
           zip:      currentShipping.zip,
           country:  currentShipping.country || 'US',
           phone:    currentShipping.phone,
-          shippingCost: (shippingCost || 0).toFixed(2),
-          shippingServiceName: shippingServiceName || 'Standard Shipping',
+          shippingCost: currentShippingCost.toFixed(2),
+          shippingServiceName: currentShippingService,
         },
         billingAddress: {
           firstName: currentShipping.fullName?.trim().split(/\s+/)[0] || '',
@@ -364,6 +382,10 @@ const CheckoutPage = () => {
     if (cartItems.length === 0) { setDimeError('Your cart is empty.'); return; }
     if (!shippingAddress.fullName || !shippingAddress.address1 || !shippingAddress.city || !shippingAddress.zip) {
       setDimeError('Please fill in your Shipping Address (Full Name, Street Address, City, Zip Code).');
+      return;
+    }
+    if (shippingLoading) {
+      setDimeError('Calculating live shipping rates from UPS/carrier. Please wait a moment...');
       return;
     }
     if (bypassPayment) {

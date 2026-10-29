@@ -303,10 +303,14 @@ class FishbowlService {
       // Fishbowl Sales Order CSV format (Flag-based: "SO" for header, "Item" for items)
       const rows = [];
 
+      // Carrier detection: UPS or FedEx
+      const carrier = clean(order.carrier || shippingAddress.carrier || 'UPS');
+      const carrierName = carrier.toLowerCase().includes('fedex') ? 'FedEx' : 'UPS';
+
       // 1. Order Header Row (Flag: "SO")
-      // Columns: Flag,SONum,Status,CustomerName,CustomerContact,BillToName,BillToAddress,BillToCity,BillToState,BillToZip,BillToCountry,ShipToName,ShipToAddress,ShipToCity,ShipToState,ShipToZip,ShipToCountry,CarrierName,Date
+      // Columns: Flag,SONum,Status,CustomerName,CustomerContact,BillToName,BillToAddress,BillToCity,BillToState,BillToZip,BillToCountry,ShipToName,ShipToAddress,ShipToCity,ShipToState,ShipToZip,ShipToCountry,ShipToResidential,CarrierName
       rows.push(
-        `"SO","${soNum}","20","${customerName}","","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","UPS Ground","${dateStr}"`
+        `"SO","${soNum}","20","${customerName}","","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","false","${carrierName}"`
       );
 
       // 2. Line Item Rows (Flag: "Item")
