@@ -717,6 +717,49 @@ const syncInventoryFromFishbowl = async (req, res) => {
   }
 };
 
+const getFishbowlPartDetails = async (req, res) => {
+  try {
+    const { partNumber } = req.params;
+    if (!partNumber || !partNumber.trim()) {
+      return res.status(400).json({ success: false, message: "Part number / SKU is required" });
+    }
+
+    const cleanNum = partNumber.trim();
+    const details = await fishbowl.getPartFullDetails(cleanNum);
+    if (!details) {
+      return res.status(404).json({
+        success: false,
+        message: `Part "${cleanNum}" not found in Fishbowl`,
+      });
+    }
+
+    // Check if a product with this SKU or Fishbowl Part Number already exists in local DB
+    const existing = await prisma.product.findFirst({
+      where: {
+        OR: [
+          { sku: details.sku },
+          { fishbowlPartNumber: details.sku },
+        ],
+      },
+      select: { id: true, name: true, sku: true, stock: true },
+    });
+
+    return res.status(200).json({
+      success: true,
+      alreadyExists: Boolean(existing),
+      existingProduct: existing || null,
+      data: details,
+    });
+  } catch (err) {
+    console.error("Fishbowl part lookup error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch part details from Fishbowl",
+      error: err.message,
+    });
+  }
+};
+
 module.exports = {
   importProductsFromCSV,
   createProduct,
@@ -728,4 +771,5 @@ module.exports = {
   getLatestProducts,
   toggleProductStock,
   syncInventoryFromFishbowl,
+  getFishbowlPartDetails,
 };

@@ -533,6 +533,70 @@ class FishbowlService {
       return null;
     }
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // 6. Get Complete Part & Product Details for Admin Product Creation
+  // ─────────────────────────────────────────────────────────────
+  async getPartFullDetails(partNumber) {
+    if (!partNumber || !this.isConfigured()) return null;
+    try {
+      const cleanNum = String(partNumber).trim();
+      const sql =
+        'SELECT p.num AS num, p.description AS description, p.details AS details, ' +
+        'p.weight AS weight, p.len AS length, p.width AS width, p.height AS height, ' +
+        'prod.price AS price, ' +
+        'COALESCE(SUM(q.qtyOnHand),0) AS onHand, COALESCE(SUM(q.qtyAllocated),0) AS allocated, ' +
+        'COALESCE(SUM(q.qtyNotAvailable),0) AS notAvailable ' +
+        'FROM part p ' +
+        'LEFT JOIN product prod ON prod.partId = p.id ' +
+        'LEFT JOIN qtyinventorytotals q ON q.partId = p.id ' +
+        `WHERE p.num = '${cleanNum.replace(/'/g, "''")}' ` +
+        'GROUP BY p.num, p.description, p.details, p.weight, p.len, p.width, p.height, prod.price';
+
+      const rows = await this.request('GET', '/api/data-query', sql, { contentType: 'text/plain' });
+      if (!rows || !rows.length) {
+        // Fallback to parts API if custom query returns empty
+        const partRes = await this.request('GET', `/api/parts?number=${encodeURIComponent(cleanNum)}`);
+        const item = partRes?.results?.[0];
+        if (!item) return null;
+        const availableStock = await this.getPartInventory(cleanNum);
+        return {
+          sku: item.number,
+          name: item.description,
+          description: item.description,
+          regularPrice: 0,
+          stock: availableStock ?? 0,
+          weightLb: 0,
+          lengthIn: 0,
+          widthIn: 0,
+          heightIn: 0,
+        };
+      }
+
+      const row = rows[0];
+      const onHand = Number(row.onHand || 0);
+      const allocated = Number(row.allocated || 0);
+      const notAvailable = Number(row.notAvailable || 0);
+      const available = Math.max(0, Math.floor(onHand - allocated - notAvailable));
+
+      return {
+        sku: row.num,
+        name: row.description || row.num,
+        description: row.details || row.description || '',
+        regularPrice: row.price ? Number(row.price) : 0,
+        stock: available,
+        onHand,
+        allocated,
+        weightLb: row.weight ? Number(row.weight) : 0,
+        lengthIn: row.length ? Number(row.length) : 0,
+        widthIn: row.width ? Number(row.width) : 0,
+        heightIn: row.height ? Number(row.height) : 0,
+      };
+    } catch (err) {
+      console.error(`[Fishbowl] Failed to fetch full details for "${partNumber}":`, err.message);
+      return null;
+    }
+  }
 }
 
 module.exports = new FishbowlService();

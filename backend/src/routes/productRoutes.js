@@ -10,6 +10,7 @@ const {
   getLatestProducts,
   importProductsFromCSV,
   syncInventoryFromFishbowl,
+  getFishbowlPartDetails,
   // toggleProductField,
 } = require('../controllers/productController');
 
@@ -39,9 +40,10 @@ router.put('/product/:id', authenticateToken, upload.productNamedImages, updateP
 
 router.post("/products/import-csv", importProductsFromCSV);
 
-// Fishbowl Inventory Sync routes
+// Fishbowl Inventory Sync & Lookup routes
 router.post('/products/sync-inventory', syncInventoryFromFishbowl);
 router.post('/products/:id/sync-inventory', syncInventoryFromFishbowl);
+router.get('/products/fishbowl-lookup/:partNumber', getFishbowlPartDetails);
 
 
 // Toggle stock (or any simple field)

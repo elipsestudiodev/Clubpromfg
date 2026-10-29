@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import api, { formDataApi } from "@/lib/api";
-import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Upload, Image as ImageIcon, Sparkles, Zap, Loader2 } from "lucide-react";
 
 // Updated schema to include images (files)
 const productSchema = z.object({
@@ -68,6 +68,63 @@ export default function AddProduct() {
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingTypes, setLoadingTypes] = useState(true);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [fishbowlLookupSku, setFishbowlLookupSku] = useState("");
+  const [isFetchingFishbowl, setIsFetchingFishbowl] = useState(false);
+
+  const handleFishbowlLookup = async () => {
+    const skuToFetch = fishbowlLookupSku.trim();
+    if (!skuToFetch) {
+      toast.error("Please enter a Fishbowl Part Number / SKU");
+      return;
+    }
+
+    setIsFetchingFishbowl(true);
+    try {
+      const res = await api.get(`/products/fishbowl-lookup/${encodeURIComponent(skuToFetch)}`);
+      if (res.data.success && res.data.data) {
+        const d = res.data.data;
+
+        // Auto-populate react-hook-form fields
+        form.setValue("sku", d.sku, { shouldValidate: true });
+        form.setValue("name", d.name || "", { shouldValidate: true });
+        if (d.description) {
+          form.setValue("description", d.description, { shouldValidate: true });
+        }
+        if (d.regularPrice !== undefined && d.regularPrice !== null) {
+          form.setValue("regularPrice", d.regularPrice, { shouldValidate: true });
+        }
+        if (d.stock !== undefined && d.stock !== null) {
+          form.setValue("stock", d.stock, { shouldValidate: true });
+        }
+        if (d.weightLb) form.setValue("weightLb", d.weightLb, { shouldValidate: true });
+        if (d.lengthIn) form.setValue("lengthIn", d.lengthIn, { shouldValidate: true });
+        if (d.widthIn) form.setValue("widthIn", d.widthIn, { shouldValidate: true });
+        if (d.heightIn) form.setValue("heightIn", d.heightIn, { shouldValidate: true });
+
+        // Auto-generate slug
+        const generatedSlug = (d.name || d.sku)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+        form.setValue("slug", generatedSlug, { shouldValidate: true });
+
+        if (res.data.alreadyExists) {
+          toast.warning(
+            `Loaded from Fishbowl! Note: SKU "${d.sku}" already exists in Dashboard (${res.data.existingProduct?.name}).`
+          );
+        } else {
+          toast.success(
+            `Loaded from Fishbowl! Stock: ${d.stock} (On Hand: ${d.onHand}, Allocated: ${d.allocated}), Price: $${d.regularPrice}. Now select Brand, Model, Type & upload images.`
+          );
+        }
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || "Failed to fetch from Fishbowl";
+      toast.error(msg);
+    } finally {
+      setIsFetchingFishbowl(false);
+    }
+  };
 
   const form = useForm({
     resolver: zodResolver(productSchema),
@@ -255,6 +312,54 @@ export default function AddProduct() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* ── Fishbowl Quick Autofill Banner ─────────────────────── */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Sparkles className="h-4 w-4 text-blue-600" />
+                    <span className="font-semibold text-sm text-blue-900">
+                      Autofill from Fishbowl ERP
+                    </span>
+                    <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                      SOP Recommended
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-700 mb-3">
+                    Fishbowl mein create kiya hua Part Number enter karein — Name, SKU, Description, Price, Dimensions aur Available Stock automatically load ho jayenge.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                      placeholder="e.g. TEST-ENC-005 or BC20B-DRV"
+                      value={fishbowlLookupSku}
+                      onChange={(e) => setFishbowlLookupSku(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleFishbowlLookup();
+                        }
+                      }}
+                      className="bg-white border-blue-300 focus:border-blue-500 font-mono text-sm"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleFishbowlLookup}
+                      disabled={isFetchingFishbowl || !fishbowlLookupSku.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 font-medium"
+                    >
+                      {isFetchingFishbowl ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Fetching Fishbowl...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="mr-2 h-4 w-4" />
+                          Fetch from Fishbowl
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
                 {/* Product Name */}
                 <FormField
                   control={form.control}
