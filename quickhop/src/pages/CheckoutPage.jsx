@@ -3,7 +3,7 @@ import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Trash2, CreditCard, Lock, Loader2,
-  ShieldCheck, CheckCircle2, AlertCircle, ChevronRight, Truck, Zap
+  ShieldCheck, CheckCircle2, AlertCircle, ChevronRight, ChevronDown, Truck, Zap
 } from 'lucide-react';
 import { BASE_API } from '../utils/api';
 
@@ -577,18 +577,55 @@ const CheckoutPage = () => {
                       <span>Subtotal ({cartItems.length} item{cartItems.length > 1 ? 's' : ''})</span>
                       <span className="font-medium text-gray-800">${subtotal.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-500">
+                    <div className="flex justify-between items-center text-gray-700">
                       <span>Shipping</span>
-                      <span className="text-gray-800 font-medium">
+                      <span className="text-gray-900 font-semibold">
                         {shippingLoading ? (
                           <span className="text-yellow-600 animate-pulse text-xs font-semibold">Calculating rate...</span>
                         ) : shippingCost > 0 ? (
-                          <span>${shippingCost.toFixed(2)} <span className="text-xs text-gray-400 font-normal">({shippingServiceName || 'Standard'})</span></span>
+                          <span>${shippingCost.toFixed(2)}</span>
                         ) : (
                           <span className="text-gray-400 text-xs">Enter address to calculate</span>
                         )}
                       </span>
                     </div>
+
+                    {/* Compact Shipping Method Selector in Order Summary */}
+                    {shippingRates.length > 0 && (
+                      <div className="pt-1 pb-1">
+                        <div className="relative">
+                          <select
+                            value={shippingServiceName}
+                            onChange={(e) => {
+                              const selected = shippingRates.find((r) => r.serviceName === e.target.value);
+                              if (selected) {
+                                setShippingCost(selected.cost);
+                                setShippingServiceName(selected.serviceName);
+                              }
+                            }}
+                            className="w-full text-xs font-medium text-gray-800 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg py-2 pl-2.5 pr-8 cursor-pointer focus:outline-none focus:ring-1 focus:ring-yellow-400 focus:border-yellow-400 transition-colors appearance-none shadow-xs"
+                          >
+                            {shippingRates.map((rate) => {
+                              const isGround = rate.serviceName.toLowerCase().includes('ground');
+                              const isOvernight = rate.serviceName.toLowerCase().includes('overnight');
+                              const speed = isGround
+                                ? 'Standard 1–5 Days'
+                                : isOvernight
+                                ? 'Next Day'
+                                : rate.serviceName.includes('2Day')
+                                ? '2-Day Air'
+                                : '3-Day Air';
+                              return (
+                                <option key={rate.serviceCode || rate.serviceName} value={rate.serviceName}>
+                                  {rate.serviceName} (${rate.cost.toFixed(2)}) — {speed}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-gray-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="border-t border-gray-200 mt-4 pt-4 flex justify-between items-center">
                     <span className="font-bold text-gray-900 text-base">Total</span>
@@ -711,87 +748,6 @@ const CheckoutPage = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* Shipping Method Selection (Ground & Expedited) */}
-                {shippingRates.length > 0 && (
-                  <div className="border-t border-gray-200 p-6 pb-2">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-bold text-gray-800 text-sm tracking-wide uppercase flex items-center gap-2">
-                        <Truck size={17} className="text-yellow-600" />
-                        Shipping Method
-                      </h3>
-                      <span className="text-xs text-gray-500 font-medium">Select delivery speed</span>
-                    </div>
-                    <div className="space-y-2.5">
-                      {shippingRates.map((rate, idx) => {
-                        const isSelected = shippingServiceName === rate.serviceName;
-                        const isGround = rate.serviceName.toLowerCase().includes('ground');
-                        const isOvernight = rate.serviceName.toLowerCase().includes('overnight');
-                        return (
-                          <label
-                            key={rate.serviceCode || idx}
-                            onClick={() => {
-                              setShippingCost(rate.cost);
-                              setShippingServiceName(rate.serviceName);
-                            }}
-                            className={`flex items-center justify-between p-3.5 rounded-xl border text-sm cursor-pointer transition-all ${
-                              isSelected
-                                ? 'border-yellow-500 bg-yellow-50/50 ring-1 ring-yellow-400/60 shadow-xs'
-                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/60'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="radio"
-                                name="shippingMethodQuickhop"
-                                checked={isSelected}
-                                onChange={() => {
-                                  setShippingCost(rate.cost);
-                                  setShippingServiceName(rate.serviceName);
-                                }}
-                                className="w-4 h-4 text-yellow-600 focus:ring-yellow-500"
-                              />
-                              <div>
-                                <div className="font-semibold text-gray-900 flex items-center gap-2">
-                                  {rate.serviceName}
-                                  {isGround && (
-                                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                      Standard
-                                    </span>
-                                  )}
-                                  {isOvernight && (
-                                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
-                                      Overnight
-                                    </span>
-                                  )}
-                                  {!isGround && !isOvernight && (
-                                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                                      Expedited
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-0.5">
-                                  {isGround
-                                    ? 'Standard 1–5 business days'
-                                    : isOvernight
-                                    ? 'Next business day delivery'
-                                    : rate.serviceName.includes('2Day')
-                                    ? 'Guaranteed 2 business days'
-                                    : 'Expedited 3 business days'}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-base font-bold text-gray-900">
-                                ${rate.cost.toFixed(2)}
-                              </span>
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
 
                 {/* Payment section */}
                 <div className="p-6">

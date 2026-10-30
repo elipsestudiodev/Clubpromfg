@@ -458,6 +458,40 @@ class ShippingService {
 
     let ratesArray = Array.from(rateMap.values());
 
+    // Filter out redundant niche tiers (like 2Day AM and First Overnight) to keep options concise & clean
+    const allowedTiers = [
+      'FEDEX_GROUND',
+      'GROUND_HOME_DELIVERY',
+      'FEDEX_EXPRESS_SAVER',
+      'FEDEX_2_DAY',
+      'STANDARD_OVERNIGHT',
+      'PRIORITY_OVERNIGHT',
+      '03', // UPS Ground
+      '12', // UPS 3 Day Select
+      '02', // UPS 2nd Day Air
+      '01', // UPS Next Day Air
+    ];
+
+    let curatedRates = ratesArray.filter((r) => {
+      const code = r.serviceCode || '';
+      const name = (r.serviceName || '').toLowerCase();
+      if (name.includes('first overnight')) return false;
+      if (name.includes('2day am') || name.includes('2day® am')) return false;
+      if (allowedTiers.includes(code)) return true;
+      return true;
+    });
+
+    // If both Standard Overnight and Priority Overnight are present, keep Priority Overnight
+    const hasStandard = curatedRates.some((r) => r.serviceCode === 'STANDARD_OVERNIGHT');
+    const hasPriority = curatedRates.some((r) => r.serviceCode === 'PRIORITY_OVERNIGHT');
+    if (hasStandard && hasPriority) {
+      curatedRates = curatedRates.filter((r) => r.serviceCode !== 'STANDARD_OVERNIGHT');
+    }
+
+    if (curatedRates.length > 0) {
+      ratesArray = curatedRates;
+    }
+
     // Sort: Ground options always first, then air/express sorted by price ascending
     ratesArray.sort((a, b) => {
       const aIsGround = a.serviceName.toLowerCase().includes('ground');
