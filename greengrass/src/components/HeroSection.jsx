@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 
@@ -22,6 +22,14 @@ export default function HeroSection() {
           );
 
           setHeroes(activeHeroes);
+
+          // Preload all hero images so there is zero blink or loading delay on slide transition
+          activeHeroes.forEach((item) => {
+            if (item.imageUrl) {
+              const img = new Image();
+              img.src = `${API_HOST}${item.imageUrl}`;
+            }
+          });
         }
       } catch (error) {
         console.log("Hero fetch error:", error);
@@ -33,7 +41,7 @@ export default function HeroSection() {
 
   // Auto Slide
   useEffect(() => {
-    if (heroes.length === 0) return;
+    if (heroes.length <= 1) return;
 
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % heroes.length);
@@ -42,35 +50,30 @@ export default function HeroSection() {
     return () => clearInterval(interval);
   }, [heroes]);
 
-  const currentHero = heroes[currentIndex];
-
   return (
-    <div className="relative w-full md:h-[80vh] h-[900px] overflow-hidden bg-primary">
-      {/* Background Slider */}
-      <AnimatePresence mode="wait">
-        {currentHero && (
-          <motion.div
-            key={currentHero.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5 }}
-            className="absolute inset-0"
-          >
-            <img
-              src={`${API_HOST}${currentHero.imageUrl}`}
-              alt={currentHero.imgAlt || currentHero.title}
-              className="w-full h-full object-cover"
-            />
+    <div className="relative w-full md:h-[80vh] h-[900px] overflow-hidden bg-black">
+      {/* Background Slider - Smooth Seamless Cross-Fade (No Blinking) */}
+      {heroes.map((hero, index) => (
+        <div
+          key={hero.id || index}
+          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+            index === currentIndex ? "opacity-100 z-0" : "opacity-0 -z-10 pointer-events-none"
+          }`}
+        >
+          <img
+            src={`${API_HOST}${hero.imageUrl}`}
+            alt={hero.imgAlt || hero.title}
+            className="w-full h-full object-cover"
+            loading="eager"
+          />
 
-            {/* Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
+        </div>
+      ))}
 
       {/* Static Content */}
-      <div className="absolute inset-0 flex items-center px-8 md:px-16 container mx-auto">
+      <div className="absolute inset-0 flex items-center px-8 md:px-16 container mx-auto z-10">
         <div className="max-w-2xl text-white space-y-6">
           <motion.div
             initial={{ opacity: 0, x: -50 }}
@@ -137,7 +140,7 @@ export default function HeroSection() {
       </div>
 
       {/* Bottom Fade */}
-      <div className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-primary/90 to-transparent pointer-events-none"></div>
+      <div className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-primary/90 to-transparent pointer-events-none z-10"></div>
     </div>
   );
 }
