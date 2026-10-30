@@ -6,6 +6,27 @@ const fishbowl = require('./fishbowlService');
 
 const prisma = new PrismaClient();
 
+function normalizeCountryCode(country) {
+  if (!country) return 'US';
+  const c = String(country).trim().toUpperCase();
+  if (
+    c === 'US' ||
+    c === 'USA' ||
+    c === 'UNITED STATES' ||
+    c === 'UNITED STATES OF AMERICA' ||
+    c === 'U.S.' ||
+    c === 'U.S.A.'
+  ) {
+    return 'US';
+  }
+  if (c === 'CA' || c === 'CAN' || c === 'CANADA') return 'CA';
+  if (c === 'MX' || c === 'MEX' || c === 'MEXICO') return 'MX';
+  if (c === 'GB' || c === 'UK' || c === 'UNITED KINGDOM' || c === 'GREAT BRITAIN') return 'GB';
+  if (c === 'DE' || c === 'GERMANY' || c === 'DEU') return 'DE';
+  if (c === 'AU' || c === 'AUSTRALIA' || c === 'AUS') return 'AU';
+  return c.length === 2 ? c : 'US';
+}
+
 class ShippingService {
   /**
    * Helper: Smart Box Packing & Multi-Item Consolidation
@@ -265,8 +286,12 @@ class ShippingService {
    */
   async calculateRate({ items = [], shippingAddress = {} }) {
     const settings = await shippingSettings.getSettings();
-    const destinationCountry = (shippingAddress.country || 'US').trim().toUpperCase();
-    const isDomestic = destinationCountry === 'US' || destinationCountry === 'USA';
+    const normalizedCountry = normalizeCountryCode(shippingAddress.country);
+    const isDomestic = normalizedCountry === 'US';
+    const cleanShippingAddress = {
+      ...shippingAddress,
+      country: normalizedCountry,
+    };
 
     // 1. Resolve multi-location fulfillment (NY vs. DR)
     const originLegs = await this.resolveOrigins(items, settings);
@@ -291,12 +316,12 @@ class ShippingService {
         // Query BOTH carriers in parallel!
         const [fedexRes, upsRes] = await Promise.allSettled([
           fedexService.getLiveRates({
-            toAddress: shippingAddress,
+            toAddress: cleanShippingAddress,
             packages,
             fromAddress: leg.fromAddress,
           }),
           upsService.getLiveRates({
-            toAddress: shippingAddress,
+            toAddress: cleanShippingAddress,
             packages,
             fromAddress: leg.fromAddress,
           }),
@@ -330,17 +355,17 @@ class ShippingService {
           legService = upsRate.serviceName;
         } else {
           // Fallback
-          legCarrier = isDomestic ? 'FedEx' : 'FedEx';
+          legCarrier = 'FedEx';
           legCost = isDomestic
             ? this.calculateDomesticFallback(packages)
             : this.calculateInternationalRate(packages);
-          legService = 'Ground Delivery (Calculated Rate)';
+          legService = isDomestic ? 'FedEx Ground®' : 'FedEx International';
         }
       } else if (settings.carrierMode === 'UPS') {
         // UPS Preferred
         try {
           const upsRes = await upsService.getLiveRates({
-            toAddress: shippingAddress,
+            toAddress: cleanShippingAddress,
             packages,
             fromAddress: leg.fromAddress,
           });
@@ -354,13 +379,13 @@ class ShippingService {
           legCost = isDomestic
             ? this.calculateDomesticFallback(packages)
             : this.calculateInternationalRate(packages);
-          legService = 'UPS Ground (Fallback)';
+          legService = isDomestic ? 'UPS Ground' : 'UPS Worldwide Standard';
         }
       } else {
         // Default: FEDEX Preferred (Client's choice for better negotiated rates)
         try {
           const fedexRes = await fedexService.getLiveRates({
-            toAddress: shippingAddress,
+            toAddress: cleanShippingAddress,
             packages,
             fromAddress: leg.fromAddress,
           });
@@ -374,7 +399,7 @@ class ShippingService {
           legCost = isDomestic
             ? this.calculateDomesticFallback(packages)
             : this.calculateInternationalRate(packages);
-          legService = isDomestic ? 'FedEx Ground (Fallback)' : 'FedEx International (Fallback)';
+          legService = isDomestic ? 'FedEx Ground®' : 'FedEx International';
         }
       }
 

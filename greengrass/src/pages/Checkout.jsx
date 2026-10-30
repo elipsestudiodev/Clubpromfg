@@ -161,6 +161,22 @@ export default function Checkout() {
       }
 
       if (userData) {
+        const rawCountry = userData.billingCountry || userData.commercialCountry || '';
+        let cleanCountry = 'US';
+        if (rawCountry) {
+          const c = String(rawCountry).trim().toUpperCase();
+          if (c === 'US' || c === 'USA' || c.includes('UNITED STATES')) {
+            cleanCountry = 'US';
+          } else if (c === 'CA' || c === 'CAN' || c.includes('CANADA')) {
+            cleanCountry = 'CA';
+          } else if (c === 'MX' || c === 'MEX' || c.includes('MEXICO')) {
+            cleanCountry = 'MX';
+          } else if (c === 'GB' || c === 'UK' || c.includes('UNITED KINGDOM') || c.includes('GREAT BRITAIN')) {
+            cleanCountry = 'GB';
+          } else {
+            cleanCountry = c.length === 2 ? c : 'US';
+          }
+        }
         setShippingAddress((prev) => ({
           ...prev,
           fullName: userData.fullName || userData.name || prev.fullName || '',
@@ -168,7 +184,7 @@ export default function Checkout() {
           city:     userData.billingCity || userData.commercialCity || prev.city || '',
           state:    userData.billingState || userData.commercialState || prev.state || '',
           zip:      userData.billingZip || userData.commercialZip || prev.zip || '',
-          country:  userData.billingCountry || userData.commercialCountry || prev.country || 'US',
+          country:  cleanCountry,
           phone:    userData.phone || prev.phone || '',
         }));
       }
