@@ -516,6 +516,13 @@ class ShippingService {
         ratesArray.push(
           {
             carrier: selectedCarrier,
+            serviceCode: 'FEDEX_EXPRESS_SAVER',
+            serviceName: 'FedEx Express Saver®',
+            cost: parseFloat((finalTotalShipping * 1.55).toFixed(2)),
+            guaranteedDays: '3',
+          },
+          {
+            carrier: selectedCarrier,
             serviceCode: 'FEDEX_2_DAY',
             serviceName: 'FedEx 2Day®',
             cost: parseFloat((finalTotalShipping * 1.85).toFixed(2)),
