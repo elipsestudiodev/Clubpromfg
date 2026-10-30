@@ -302,6 +302,7 @@ class ShippingService {
     const allParcels = [];
     const legDetails = [];
     let rateShoppingComparison = null;
+    const allLegRates = [];
 
     for (const leg of originLegs) {
       const packages = await this.buildPackages(leg.items, settings.boxVariants);
@@ -329,6 +330,13 @@ class ShippingService {
 
         const fedexRate = fedexRes.status === 'fulfilled' ? fedexRes.value?.selectedRate : null;
         const upsRate = upsRes.status === 'fulfilled' ? upsRes.value?.selectedRate : null;
+
+        if (fedexRes.status === 'fulfilled' && Array.isArray(fedexRes.value?.rates)) {
+          allLegRates.push(...fedexRes.value.rates);
+        }
+        if (upsRes.status === 'fulfilled' && Array.isArray(upsRes.value?.rates)) {
+          allLegRates.push(...upsRes.value.rates);
+        }
 
         if (fedexRate && upsRate) {
           rateShoppingComparison = {
@@ -374,6 +382,9 @@ class ShippingService {
             legCost = upsRes.selectedRate.cost;
             legService = upsRes.selectedRate.serviceName;
           }
+          if (Array.isArray(upsRes.rates)) {
+            allLegRates.push(...upsRes.rates);
+          }
         } catch (e) {
           console.warn('[Shipping] UPS live lookup failed, fallback:', e.message);
           legCost = isDomestic
@@ -393,6 +404,9 @@ class ShippingService {
             legCarrier = 'FedEx';
             legCost = fedexRes.selectedRate.cost;
             legService = fedexRes.selectedRate.serviceName;
+          }
+          if (Array.isArray(fedexRes.rates)) {
+            allLegRates.push(...fedexRes.rates);
           }
         } catch (e) {
           console.warn('[Shipping] FedEx live lookup failed, fallback:', e.message);
@@ -423,12 +437,74 @@ class ShippingService {
       (markedUpCost + (settings.handlingFee || 0)).toFixed(2)
     );
 
+    // 5. Curate available shipping rate options (Ground & Expedited)
+    const rateMap = new Map();
+    for (const r of allLegRates) {
+      if (!r || !r.serviceName) continue;
+      const markedRateCost = parseFloat(
+        ((r.cost * markupMultiplier) + (settings.handlingFee || 0)).toFixed(2)
+      );
+      const key = r.serviceName;
+      if (!rateMap.has(key) || rateMap.get(key).cost > markedRateCost) {
+        rateMap.set(key, {
+          carrier: r.carrier || selectedCarrier,
+          serviceCode: r.serviceCode || '',
+          serviceName: r.serviceName,
+          cost: markedRateCost,
+          guaranteedDays: r.guaranteedDays || null,
+        });
+      }
+    }
+
+    let ratesArray = Array.from(rateMap.values());
+
+    // Sort: Ground options always first, then air/express sorted by price ascending
+    ratesArray.sort((a, b) => {
+      const aIsGround = a.serviceName.toLowerCase().includes('ground');
+      const bIsGround = b.serviceName.toLowerCase().includes('ground');
+      if (aIsGround && !bIsGround) return -1;
+      if (!aIsGround && bIsGround) return 1;
+      return a.cost - b.cost;
+    });
+
+    // Ensure selected rate is first if found
+    if (ratesArray.length === 0) {
+      ratesArray = [
+        {
+          carrier: selectedCarrier,
+          serviceCode: isDomestic ? 'FEDEX_GROUND' : 'INTERNATIONAL_ECONOMY',
+          serviceName: selectedServiceName || (isDomestic ? 'FedEx Ground®' : 'FedEx International'),
+          cost: finalTotalShipping,
+          guaranteedDays: isDomestic ? '1-5' : '3-7',
+        },
+      ];
+      if (isDomestic) {
+        ratesArray.push(
+          {
+            carrier: selectedCarrier,
+            serviceCode: 'FEDEX_2_DAY',
+            serviceName: 'FedEx 2Day®',
+            cost: parseFloat((finalTotalShipping * 1.85).toFixed(2)),
+            guaranteedDays: '2',
+          },
+          {
+            carrier: selectedCarrier,
+            serviceCode: 'PRIORITY_OVERNIGHT',
+            serviceName: 'FedEx Priority Overnight®',
+            cost: parseFloat((finalTotalShipping * 2.75).toFixed(2)),
+            guaranteedDays: '1',
+          }
+        );
+      }
+    }
+
     return {
       success: true,
       cost: finalTotalShipping,
       carrier: selectedCarrier,
       serviceName: selectedServiceName || `${selectedCarrier} Delivery`,
       isInternational: !isDomestic,
+      rates: ratesArray,
       markupPercentApplied: settings.markupPercent,
       handlingFeeApplied: settings.handlingFee,
       packages: allParcels,

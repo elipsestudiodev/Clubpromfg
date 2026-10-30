@@ -30,6 +30,7 @@ exports.calculateRate = async (req, res) => {
       carrier: rateResult.carrier,
       serviceName: rateResult.serviceName,
       isInternational: rateResult.isInternational,
+      rates: rateResult.rates || [],
       packages: rateResult.packages || [],
       originLegs: rateResult.originLegs || [],
       rateShoppingComparison: rateResult.rateShoppingComparison || null,
