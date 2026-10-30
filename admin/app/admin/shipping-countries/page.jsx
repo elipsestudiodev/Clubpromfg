@@ -16,14 +16,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Plus, Edit, Trash2, Globe, Truck, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Globe, Truck, CheckCircle2, XCircle, Info, Settings } from "lucide-react";
+import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner/LoadingSpinner";
 
 export default function ShippingCountriesPage() {
@@ -162,15 +156,25 @@ export default function ShippingCountriesPage() {
             Shipping Countries
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Manage supported domestic (UPS) and international (FedEx) destinations for checkout.
+            Manage supported destination countries for customer checkout. Live rates &amp; carrier routing (FedEx, UPS, or Rate Shopping) are managed dynamically in Shipping Settings.
           </p>
         </div>
-        <Button
-          onClick={openAddModal}
-          className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> Add Country
-        </Button>
+        <div className="flex items-center gap-3">
+          <Link href="/admin/shipping-settings">
+            <Button
+              variant="outline"
+              className="border-gray-200 text-gray-700 hover:bg-gray-50 font-medium flex items-center gap-1.5"
+            >
+              <Settings className="w-4 h-4 text-gray-500" /> Shipping Settings
+            </Button>
+          </Link>
+          <Button
+            onClick={openAddModal}
+            className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Add Country
+          </Button>
+        </div>
       </div>
 
       {/* Table Card */}
@@ -193,7 +197,7 @@ export default function ShippingCountriesPage() {
                 <TableHead className="w-16">Sort</TableHead>
                 <TableHead>Country Name</TableHead>
                 <TableHead>Code (ISO)</TableHead>
-                <TableHead>Carrier</TableHead>
+                <TableHead>Carrier Routing</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -213,15 +217,9 @@ export default function ShippingCountriesPage() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        c.carrier === "UPS"
-                          ? "bg-amber-100 text-amber-800 border border-amber-200"
-                          : "bg-purple-100 text-purple-800 border border-purple-200"
-                      }`}
-                    >
-                      <Truck className="w-3.5 h-3.5" />
-                      {c.carrier || (c.code === "US" ? "UPS" : "FedEx")}
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      <Truck className="w-3.5 h-3.5 text-blue-600" />
+                      Dynamic (Shipping Settings)
                     </span>
                   </TableCell>
                   <TableCell>
@@ -276,7 +274,7 @@ export default function ShippingCountriesPage() {
               {editingCountry ? "Edit Shipping Country" : "Add Shipping Country"}
             </DialogTitle>
             <DialogDescription>
-              Configure destination details for live rate calculation in checkout.
+              Configure destination country details for customer checkout.
             </DialogDescription>
           </DialogHeader>
 
@@ -314,26 +312,6 @@ export default function ShippingCountriesPage() {
               </div>
 
               <div>
-                <Label htmlFor="carrier" className="text-xs uppercase font-bold text-gray-600">
-                  Carrier *
-                </Label>
-                <Select
-                  value={formData.carrier}
-                  onValueChange={(val) => setFormData({ ...formData, carrier: val })}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select carrier" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="FedEx">FedEx (International)</SelectItem>
-                    <SelectItem value="UPS">UPS (Domestic / Express)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 items-center">
-              <div>
                 <Label htmlFor="sortOrder" className="text-xs uppercase font-bold text-gray-600">
                   Sort Order
                 </Label>
@@ -347,18 +325,29 @@ export default function ShippingCountriesPage() {
                   className="mt-1"
                 />
               </div>
+            </div>
 
-              <div className="flex items-center gap-2 pt-5">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="w-4 h-4 rounded text-yellow-500 focus:ring-yellow-400"
-                />
-                <Label htmlFor="isActive" className="text-sm font-medium text-gray-700 cursor-pointer">
-                  Active in Checkout
-                </Label>
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                checked={formData.isActive}
+                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                className="w-4 h-4 rounded text-yellow-500 focus:ring-yellow-400"
+              />
+              <Label htmlFor="isActive" className="text-sm font-medium text-gray-700 cursor-pointer">
+                Active in Checkout
+              </Label>
+            </div>
+
+            {/* Dynamic Carrier Notice */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <span className="font-semibold text-blue-900">Carrier Routing is Automated:</span> Carrier selection (FedEx, UPS, or Cheapest Rate Shopping) and handling markups are dynamically determined by your global{" "}
+                <Link href="/admin/shipping-settings" className="underline font-semibold hover:text-blue-950">
+                  Shipping Settings
+                </Link>.
               </div>
             </div>
 
