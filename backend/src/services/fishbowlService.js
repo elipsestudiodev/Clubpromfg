@@ -503,21 +503,7 @@ class FishbowlService {
       });
 
       console.log(`[Fishbowl] Sales Order ${soNum} successfully created in Fishbowl!`);
-
-      // Attempt to record payment against the Sales Order so Fishbowl displays the PAID watermark
-      const orderTotalAmt = parseFloat(order.totalAmount || order.totalPrice || 0);
-      if (orderTotalAmt > 0) {
-        await this.recordPayment({
-          soNum,
-          customerName,
-          amount: orderTotalAmt,
-          transactionId: order.transactionId || '',
-          paymentMethod: 'CREDIT CARD',
-        }).catch((payErr) => {
-          console.warn(`[Fishbowl] Payment auto-record notice:`, payErr.message);
-        });
-      }
-
+      console.log(`[Fishbowl] Payment Terms set to CREDIT CARD for ${soNum} (Online Txn: ${order.transactionId || 'PAID'})`);
       console.log('========== [FISHBOWL] End ==========\n');
       return soNum;
     } catch (err) {
