@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
+const { sendOrderShippedEmail } = require('../utils/sendEmail');
 
 const prisma = new PrismaClient();
 
@@ -723,6 +724,119 @@ class FishbowlService {
     } catch (err) {
       console.error(`[Fishbowl] Failed to fetch full details for "${partNumber}":`, err.message);
       return null;
+    }
+  }
+
+  /**
+   * Synchronizes shipped orders from Fishbowl back to the database.
+   * Queries Fishbowl for sales orders marked status 60 (Fulfilled) or shipments marked status 30 (Shipped).
+   * Automatically updates website order status to 'SHIPPED', stores tracking number, and emails customer.
+   */
+  async syncShippedOrders() {
+    if (!this.isConfigured()) return { success: false, message: 'Fishbowl not configured' };
+
+    try {
+      // Find orders currently awaiting fulfillment
+      const pendingOrders = await prisma.order.findMany({
+        where: {
+          status: { in: ['PAID', 'PENDING'] },
+        },
+        include: {
+          customer: true,
+          items: {
+            include: { product: true },
+          },
+        },
+      });
+
+      if (!pendingOrders.length) {
+        return { success: true, count: 0, message: 'No pending orders to sync' };
+      }
+
+      const soNumMap = new Map();
+      const soNumList = [];
+      for (const ord of pendingOrders) {
+        const soNum = ord.fishbowlSalesOrderNumber || `#${ord.id}`;
+        soNumList.push(soNum);
+        soNumMap.set(soNum, ord);
+        // Also map without '#' just in case
+        if (soNum.startsWith('#')) {
+          soNumMap.set(soNum.slice(1), ord);
+        }
+      }
+
+      const inClause = soNumList.map((n) => `'${n.replace(/'/g, "''")}'`).join(',');
+      const sql =
+        'SELECT s.id as soId, s.num as soNum, s.statusId as soStatus, ' +
+        'sh.id as shipId, sh.num as shipNum, sh.statusId as shipStatus, ' +
+        'sc.trackingNum as trackingNum, c.name as carrierName, sh.dateShipped ' +
+        'FROM so s ' +
+        'LEFT JOIN ship sh ON sh.soId = s.id ' +
+        'LEFT JOIN shipcarton sc ON sc.shipId = sh.id ' +
+        'LEFT JOIN carrier c ON c.id = sh.carrierId ' +
+        `WHERE s.num IN (${inClause})`;
+
+      const rows = await this.request('GET', '/api/data-query', sql, { contentType: 'text/plain' });
+
+      let updatedCount = 0;
+      const processedOrderIds = new Set();
+
+      for (const row of rows || []) {
+        const isShippedOrFulfilled = Number(row.soStatus) === 60 || Number(row.shipStatus) === 30;
+        if (!isShippedOrFulfilled) continue;
+
+        const order = soNumMap.get(row.soNum) || soNumMap.get(String(row.soNum).replace('#', ''));
+        if (!order || processedOrderIds.has(order.id)) continue;
+        processedOrderIds.add(order.id);
+
+        // Carrier determination
+        let carrierName = row.carrierName || order.carrier || 'FedEx';
+        if (carrierName.toLowerCase().includes('fedex')) carrierName = 'FedEx';
+        else if (carrierName.toLowerCase().includes('ups')) carrierName = 'UPS';
+
+        const rawTracking = String(row.trackingNum || '').trim();
+        const trackingNumber = rawTracking || order.trackingNumber || null;
+
+        // Update Order in database
+        const updated = await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            status: 'SHIPPED',
+            shipmentStatus: 'SHIPPED',
+            carrier: carrierName,
+            trackingNumber: trackingNumber,
+          },
+          include: {
+            customer: true,
+            items: { include: { product: true } },
+          },
+        });
+
+        console.log(`[Fishbowl Sync] Order #${order.id} (SO ${row.soNum}) marked SHIPPED in DB! Carrier: ${carrierName}, Tracking: ${trackingNumber || 'N/A'}`);
+
+        // Dispatch shipping email
+        try {
+          await sendOrderShippedEmail({
+            order: updated,
+            trackingNumber: trackingNumber || '',
+            carrier: carrierName,
+          });
+          console.log(`[Fishbowl Sync] Shipment notification email dispatched to ${order.shipEmail || order.customer?.email} for Order #${order.id}`);
+        } catch (mailErr) {
+          console.warn(`[Fishbowl Sync Warning] Failed to send shipped email for Order #${order.id}:`, mailErr.message);
+        }
+
+        updatedCount++;
+      }
+
+      return {
+        success: true,
+        totalChecked: pendingOrders.length,
+        updatedCount,
+      };
+    } catch (err) {
+      console.error('[Fishbowl syncShippedOrders Error]:', err.message);
+      return { success: false, error: err.message };
     }
   }
 }

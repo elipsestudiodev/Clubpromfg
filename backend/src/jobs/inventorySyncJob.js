@@ -81,6 +81,16 @@ async function syncAllProductsInventory() {
       await prisma.$transaction(updates);
     }
 
+    // ── Sync Shipped Orders from Fishbowl back to website database & notify customers ──
+    try {
+      const shipSyncResult = await fishbowl.syncShippedOrders();
+      if (shipSyncResult?.updatedCount > 0) {
+        console.log(`[Fishbowl Sync Job] ${shipSyncResult.updatedCount} order(s) marked SHIPPED and customers notified.`);
+      }
+    } catch (shipErr) {
+      console.warn('[Fishbowl Sync Job] Shipped orders sync warning:', shipErr.message);
+    }
+
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log(
       `[Fishbowl Sync Job] Synced ${products.length} products in ${duration}s (${updatedCount} updated). Fishbowl Available Stock is active.`

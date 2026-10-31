@@ -4,7 +4,7 @@ const { validationResult } = require("express-validator");
 const nodemailer = require("nodemailer");
 const { sendEmail } = require("../utils/sendEmail");
 const Stripe = require("stripe");
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // Services
 const fishbowl = require("../services/fishbowlService");
@@ -704,5 +704,53 @@ exports.updateOrderTracking = async (req, res) => {
   } catch (err) {
     console.error("[Order Tracking Error]:", err);
     return res.status(500).json({ success: false, message: "Failed to update tracking", error: err.message });
+  }
+};
+
+// ────────────────────────────────────────────────
+// Customer: Get My Orders (Order History & Tracking)
+// GET /api/orders/my-orders
+// ────────────────────────────────────────────────
+exports.getMyOrders = async (req, res) => {
+  try {
+    const customerId = req.user.id;
+    const orders = await prisma.order.findMany({
+      where: { customerId },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                images: true,
+                regularPrice: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.json({ success: true, orders });
+  } catch (err) {
+    console.error("[getMyOrders Error]:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch orders" });
+  }
+};
+
+// ────────────────────────────────────────────────
+// Sync Shipped Orders from Fishbowl
+// GET /api/orders/sync-fishbowl
+// ────────────────────────────────────────────────
+exports.syncFishbowlOrders = async (req, res) => {
+  try {
+    const result = await fishbowl.syncShippedOrders();
+    return res.json(result);
+  } catch (err) {
+    console.error("[syncFishbowlOrders Error]:", err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 };

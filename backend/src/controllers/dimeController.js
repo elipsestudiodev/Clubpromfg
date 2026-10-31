@@ -2,6 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const axios = require("axios");
 const querystring = require("querystring");
 const { sendClubProOrderWebhook } = require("../utils/clubProWebhook");
+const { sendOrderConfirmationEmail } = require("../utils/sendEmail");
 const fishbowl = require("../services/fishbowlService");
 
 const prisma = new PrismaClient();
@@ -327,7 +328,29 @@ exports.dimeCharge = async (req, res) => {
       });
     }
 
-    // 4. Fishbowl Sync: Create Sales Order for FedEx Ship Manager & UPS WorldShip
+    // 4. Send Order Confirmation Email to Customer
+    sendOrderConfirmationEmail({
+      order: {
+        ...order,
+        carrier: chosenCarrier,
+        serviceLevel: chosenService,
+        totalAmount: parseFloat(amount),
+        shipmentCost: shippingCost,
+      },
+      customer,
+      items: parsedItems,
+      shippingAddress: {
+        ...shipAddr,
+        carrier: chosenCarrier,
+        shippingServiceName: chosenService,
+      },
+      billingAddress,
+      transactionId,
+    }).catch((mailErr) => {
+      console.error("[Email Warning] Failed to send order confirmation email:", mailErr.message);
+    });
+
+    // 5. Fishbowl Sync: Create Sales Order for FedEx Ship Manager & UPS WorldShip
     fishbowl.syncSalesOrder({
       order: {
         ...order,

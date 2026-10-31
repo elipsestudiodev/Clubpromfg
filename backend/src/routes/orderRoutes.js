@@ -10,17 +10,18 @@ const {
   updateStatus,
   bulkCancel,
   updateOrderTracking,
+  getMyOrders,
+  syncFishbowlOrders,
 } = require("../controllers/orderController");
 const { authenticateToken } = require("../middlewares/authMiddleware");
 
-// router.post(
-//   "/stripe/webhook",
-//   express.raw({ type: "application/json" }),
-//   stripeWebhook
-// );
+// Customer: Get personal order history & tracking
+router.get('/orders/my-orders', authenticateToken, getMyOrders);
+router.get('/my-orders', authenticateToken, getMyOrders);
 
-// [REMOVED - Stripe completely disabled]
-// router.post("/checkout/stripe-session", authenticateToken, stripeSession);
+// Fishbowl Shipment Sync
+router.get('/orders/sync-fishbowl', syncFishbowlOrders);
+router.post('/orders/sync-fishbowl', syncFishbowlOrders);
 
 router.get('/orders', getOrders);
 
