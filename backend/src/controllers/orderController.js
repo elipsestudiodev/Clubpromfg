@@ -2,7 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const { validationResult } = require("express-validator");
 const nodemailer = require("nodemailer");
-const { sendEmail } = require("../utils/sendEmail");
+const { sendEmail, sendOrderShippedEmail, sendOrderDeliveredEmail } = require("../utils/sendEmail");
 const Stripe = require("stripe");
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -522,8 +522,29 @@ exports.updateStatus = async (req, res) => {
   try {
     const order = await prisma.order.update({
       where: { id: parseInt(req.params.id) },
-      data: { status },
+      data: {
+        status,
+        ...(status === "DELIVERED" ? { shipmentStatus: "DELIVERED" } : {}),
+        ...(status === "SHIPPED" ? { shipmentStatus: "SHIPPED" } : {}),
+      },
+      include: {
+        customer: true,
+        items: { include: { product: true } },
+      },
     });
+
+    if (status === "DELIVERED") {
+      sendOrderDeliveredEmail({ order }).catch((err) =>
+        console.warn("[Delivery Email Warning]:", err.message)
+      );
+    } else if (status === "SHIPPED") {
+      sendOrderShippedEmail({
+        order,
+        trackingNumber: order.trackingNumber || "",
+        carrier: order.carrier || "FedEx",
+      }).catch((err) => console.warn("[Ship Email Warning]:", err.message));
+    }
+
     res.json(order);
   } catch (error) {
     console.error(error);
@@ -620,85 +641,32 @@ exports.updateOrderTracking = async (req, res) => {
       },
     });
 
-    // Send shipment notification email to customer
+    // Send notification email to customer
     const recipientEmail = order.shipEmail || order.customer?.email;
-    const recipientName = order.shipFirstName ? `${order.shipFirstName} ${order.shipLastName || ""}`.trim() : order.customer?.fullName || "Valued Customer";
 
     if (sendEmailNotification && recipientEmail) {
-      const itemsHtml = order.items.map((i) => `
-        <tr>
-          <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; color: #333;">${i.product?.name || "Product"}</td>
-          <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: center; color: #666;">${i.quantity}</td>
-          <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-weight: 600; color: #111;">$${Number(i.priceAtOrder).toFixed(2)}</td>
-        </tr>
-      `).join("");
-
-      const emailHtml = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #eaeaea; border-radius: 12px; overflow: hidden;">
-          <div style="background: #111111; padding: 28px 24px; text-align: center;">
-            <h1 style="color: #f9c821; margin: 0; font-size: 24px; letter-spacing: 1px; font-weight: 800;">CLUB PRO MFG</h1>
-            <p style="color: #ffffff; margin: 6px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Your Order Has Shipped!</p>
-          </div>
-          
-          <div style="padding: 32px 24px;">
-            <p style="font-size: 16px; color: #222; margin-top: 0;">Hi <strong>${recipientName}</strong>,</p>
-            <p style="font-size: 14px; color: #555; line-height: 1.6;">
-              Great news! Your order <strong>#${order.id}</strong> has been shipped via <strong>${detectedCarrier}</strong>.
-            </p>
-
-            <div style="background: #fbfbfb; border: 1px solid #eee; border-radius: 8px; padding: 20px; margin: 24px 0; text-align: center;">
-              <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Tracking Number</div>
-              <div style="font-size: 18px; font-weight: 700; color: #111; font-family: monospace; letter-spacing: 1px; margin-bottom: 16px;">
-                ${cleanTracking}
-              </div>
-              <a href="${trackingUrl}" target="_blank" style="display: inline-block; background: #f9c821; color: #111; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
-                Track Your Package &rarr;
-              </a>
-            </div>
-
-            <h3 style="font-size: 15px; color: #111; margin-bottom: 12px; border-bottom: 2px solid #f9c821; padding-bottom: 6px;">Order Summary</h3>
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-              <thead>
-                <tr style="color: #888; text-transform: uppercase; font-size: 11px;">
-                  <th style="text-align: left; padding-bottom: 8px;">Item</th>
-                  <th style="text-align: center; padding-bottom: 8px;">Qty</th>
-                  <th style="text-align: right; padding-bottom: 8px;">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemsHtml}
-              </tbody>
-            </table>
-
-            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee; font-size: 13px; color: #666; line-height: 1.6;">
-              <strong>Delivery Address:</strong><br />
-              ${order.shipAddress1 || ""}<br />
-              ${order.shipCity ? `${order.shipCity}, ` : ""}${order.shipState || ""} ${order.shipZip || ""}<br />
-              ${order.shipCountry || "US"}
-            </div>
-          </div>
-
-          <div style="background: #f7f7f7; padding: 18px 24px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee;">
-            Questions? Contact us at <a href="mailto:greengrass@elipsestudio.info" style="color: #111;">greengrass@elipsestudio.info</a>
-          </div>
-        </div>
-      `;
-
-      try {
-        await sendEmail({
-          to: recipientEmail,
-          subject: `Your ClubPro Order #${order.id} Has Shipped! Tracking: ${cleanTracking}`,
-          html: emailHtml,
+      if (status === "DELIVERED") {
+        sendOrderDeliveredEmail({
+          order: updatedOrder,
+          trackingNumber: cleanTracking,
+          carrier: detectedCarrier,
+        }).catch((mailErr) => {
+          console.error(`[Order Tracking Warning] Failed to send delivery email to ${recipientEmail}:`, mailErr.message);
         });
-        console.log(`[Order Tracking] Shipment email sent to ${recipientEmail} for order #${order.id}`);
-      } catch (mailErr) {
-        console.error(`[Order Tracking Warning] Failed to send email to ${recipientEmail}:`, mailErr.message);
+      } else {
+        sendOrderShippedEmail({
+          order: updatedOrder,
+          trackingNumber: cleanTracking,
+          carrier: detectedCarrier,
+        }).catch((mailErr) => {
+          console.error(`[Order Tracking Warning] Failed to send shipment email to ${recipientEmail}:`, mailErr.message);
+        });
       }
     }
 
     return res.status(200).json({
       success: true,
-      message: "Order tracking updated and notification email sent.",
+      message: `Order tracking updated (${status}) and notification email sent.`,
       order: updatedOrder,
     });
   } catch (err) {

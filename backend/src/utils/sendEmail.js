@@ -428,10 +428,154 @@ const sendOrderShippedEmail = async ({
   });
 };
 
+const sendOrderDeliveredEmail = async ({
+  order,
+  trackingNumber,
+  carrier,
+}) => {
+  const recipientEmail = order.shipEmail || order.customer?.email;
+  if (!recipientEmail) {
+    console.warn("[Email Warning] No recipient email found for delivery notification", order.id);
+    return;
+  }
+
+  const recipientName = order.shipFirstName
+    ? `${order.shipFirstName} ${order.shipLastName || ""}`.trim()
+    : order.customer?.fullName || "Valued Customer";
+
+  const cleanTracking = String(trackingNumber || order.trackingNumber || "").trim();
+  const detectedCarrier = (carrier || order.carrier || (cleanTracking.toUpperCase().startsWith("1Z") ? "UPS" : "FedEx")).toUpperCase();
+  const isFedEx = detectedCarrier.includes("FEDEX");
+
+  const trackingUrl = cleanTracking
+    ? (isFedEx
+        ? `https://www.fedex.com/fedextrack/?trknbr=${cleanTracking}`
+        : `https://www.ups.com/track?tracknum=${cleanTracking}`)
+    : "#";
+
+  const itemsHtml = (order.items || []).map((i) => `
+    <tr>
+      <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; color: #333; font-size: 13px;">${i.product?.name || "Product"}</td>
+      <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: center; color: #666; font-size: 13px;">${i.quantity}</td>
+      <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-weight: 600; color: #111; font-size: 13px;">$${Number(i.priceAtOrder).toFixed(2)}</td>
+    </tr>
+  `).join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Your Order Has Been Delivered!</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6; padding: 30px 10px;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+              <!-- Header -->
+              <tr>
+                <td align="center" style="background-color: #111111; padding: 32px 24px;">
+                  <h1 style="color: #f9c821; margin: 0; font-size: 26px; letter-spacing: 1.5px; font-weight: 800; text-transform: uppercase;">CLUB PRO MFG</h1>
+                  <p style="color: #ffffff; margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Your Order Has Arrived!</p>
+                </td>
+              </tr>
+              
+              <!-- Body -->
+              <tr>
+                <td style="padding: 32px 28px;">
+                  <!-- Delivered Badge -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
+                    <tr>
+                      <td align="center">
+                        <table cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td style="background-color: #ecfdf5; color: #059669; font-weight: 700; font-size: 13px; padding: 8px 20px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px; border: 1px solid #a7f3d0;">
+                              ✓ Successfully Delivered
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <p style="font-size: 16px; color: #111827; margin: 0 0 10px 0;">Hi <strong>${recipientName}</strong>,</p>
+                  <p style="font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 24px 0;">
+                    Your order <strong>#${order.id}</strong> has been delivered via <strong>${isFedEx ? "FedEx" : "UPS"}</strong>. We hope you enjoy your new Club Pro products!
+                  </p>
+
+                  ${cleanTracking ? `
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 24px;">
+                      <tr>
+                        <td align="center" style="padding: 16px 20px;">
+                          <span style="font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Tracking Number</span>
+                          <span style="font-size: 16px; font-weight: 700; font-family: monospace; color: #111827;">${cleanTracking}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  ` : ""}
+
+                  <!-- Order Summary -->
+                  <h3 style="font-size: 14px; color: #111827; margin: 0 0 12px 0; font-weight: 700; border-bottom: 2px solid #f9c821; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Delivered Items
+                  </h3>
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; margin-bottom: 24px;">
+                    <thead>
+                      <tr style="color: #9ca3af; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb;">
+                        <th align="left" style="padding-bottom: 8px;">Item</th>
+                        <th align="center" style="padding-bottom: 8px;">Qty</th>
+                        <th align="right" style="padding-bottom: 8px;">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${itemsHtml}
+                    </tbody>
+                  </table>
+
+                  <!-- Delivery Address -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top: 1px solid #e5e7eb; padding-top: 18px; font-size: 13px; color: #4b5563; line-height: 1.6;">
+                    <tr>
+                      <td>
+                        <strong style="color: #111827; display: block; font-size: 13px; margin-bottom: 4px;">Delivered To:</strong>
+                        <div>${recipientName}</div>
+                        <div>${order.shipAddress1 || ""}</div>
+                        ${order.shipAddress2 ? `<div>${order.shipAddress2}</div>` : ""}
+                        <div>${order.shipCity ? `${order.shipCity}, ` : ""}${order.shipState || ""} ${order.shipZip || ""}</div>
+                        <div>${order.shipCountry || "US"}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td align="center" style="background-color: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb;">
+                  <p style="margin: 0 0 4px 0;">Club Pro Manufacturing USA &bull; High Quality Golf Cart Enclosures & Accessories</p>
+                  <p style="margin: 0;">Need assistance with your delivery? Contact us at <a href="mailto:greengrass@elipsestudio.info" style="color: #111827; font-weight: 600;">greengrass@elipsestudio.info</a></p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: recipientEmail,
+    subject: `Delivered: Your ClubPro Order #${order.id} Has Arrived!`,
+    html,
+  });
+};
+
 module.exports = {
   sendEmail,
   sendNormalEmail,
   sendResetEmail,
   sendOrderConfirmationEmail,
   sendOrderShippedEmail,
+  sendOrderDeliveredEmail,
 };
