@@ -12,6 +12,14 @@ class FishbowlService {
     this._tokenLoaded = false;   // whether we already tried loading the persisted token from DB
   }
 
+  _formatFBDate(date) {
+    const d = date ? new Date(date) : new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  }
+
   isConfigured() {
     return Boolean(
       process.env.FISHBOWL_API_URL &&
@@ -360,7 +368,8 @@ class FishbowlService {
       const clean = (val) => (val || '').replace(/"/g, '""').trim();
       const soNum = `#${order.id}`;
       const customerName = clean(customer.fullName || 'Valued Customer');
-      const dateStr = (order.createdAt ? new Date(order.createdAt) : new Date()).toISOString().split('T')[0];
+      // Fishbowl requires MM/dd/yyyy date format for CSV import
+      const fbDateStr = this._formatFBDate(order.createdAt);
 
       // Billing info
       const billToName = clean(billingAddress.firstName ? `${billingAddress.firstName} ${billingAddress.lastName || ''}` : customer.fullName);
@@ -431,7 +440,7 @@ class FishbowlService {
       // 1. Order Header Row (Flag: "SO")
       // Columns: Flag,SONum,Status,CustomerName,CustomerContact,BillToName,BillToAddress,BillToCity,BillToState,BillToZip,BillToCountry,ShipToName,ShipToAddress,ShipToCity,ShipToState,ShipToZip,ShipToCountry,ShipToResidential,CarrierName,CarrierService,CostCenter,PaymentTerms,FirstShipDate,CreatedDate,Salesman,CustomerPO
       rows.push(
-        `"SO","${soNum}","20","${customerName}","","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","false","${clean(carrierName)}","${clean(carrierService)}","","CREDIT CARD","","${dateStr}","Stevep",""`
+        `"SO","${soNum}","20","${customerName}","","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","false","${clean(carrierName)}","${clean(carrierService)}","","CREDIT CARD","","${fbDateStr}","Stevep",""`
       );
 
       // 2. Line Item Rows (Flag: "Item")
@@ -524,7 +533,7 @@ class FishbowlService {
   async recordPayment({ soNum, customerName, amount, transactionId, paymentMethod = 'CREDIT CARD' }) {
     if (!this.isConfigured()) return;
     const clean = (val) => (val || '').replace(/"/g, '""').trim();
-    const dateStr = new Date().toISOString().split('T')[0];
+    const fbDateStr = this._formatFBDate(new Date());
     const amtStr = Number(amount || 0).toFixed(2);
 
     try {
@@ -534,14 +543,14 @@ class FishbowlService {
         amount: Number(amtStr),
         paymentMethod,
         referenceNum: transactionId || '',
-        date: dateStr,
+        date: fbDateStr,
       });
       console.log(`[Fishbowl] Payment of $${amtStr} recorded for ${soNum} via REST API`);
       return;
     } catch (e1) {
       // 2. Fallback to Customer-Payment CSV import
       try {
-        const csv = `"CustomerName","PaymentDate","PaymentMethod","Amount","ReferenceNum","SONum"\n"${clean(customerName)}","${dateStr}","${paymentMethod}","${amtStr}","${clean(transactionId)}","${clean(soNum)}"`;
+        const csv = `"CustomerName","PaymentDate","PaymentMethod","Amount","ReferenceNum","SONum"\n"${clean(customerName)}","${fbDateStr}","${paymentMethod}","${amtStr}","${clean(transactionId)}","${clean(soNum)}"`;
         await this.request('POST', '/api/import/Customer-Payment', csv, { contentType: 'text/plain' });
         console.log(`[Fishbowl] Payment of $${amtStr} recorded for ${soNum} via CSV import`);
       } catch (e2) {
