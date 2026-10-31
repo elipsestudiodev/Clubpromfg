@@ -139,7 +139,7 @@ class FedExService {
         value: shipper.accountNumber,
       },
       requestedShipment: {
-        rateRequestType: ['ACCOUNT', 'LIST'],
+        rateRequestType: ['LIST'],
         shipper: {
           address: {
             streetLines: [shipper.address],

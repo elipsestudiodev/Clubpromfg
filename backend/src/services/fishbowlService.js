@@ -438,9 +438,10 @@ class FishbowlService {
       }
 
       // 1. Order Header Row (Flag: "SO")
-      // Columns: Flag,SONum,Status,CustomerName,CustomerContact,BillToName,BillToAddress,BillToCity,BillToState,BillToZip,BillToCountry,ShipToName,ShipToAddress,ShipToCity,ShipToState,ShipToZip,ShipToCountry,ShipToResidential,CarrierName,CarrierService,CostCenter,PaymentTerms,FirstShipDate,CreatedDate,Salesman,CustomerPO
+      // Columns: Flag,SONum,Status,CustomerName,CustomerContact,BillToName,BillToAddress,BillToCity,BillToState,BillToZip,BillToCountry,ShipToName,ShipToAddress,ShipToCity,ShipToState,ShipToZip,ShipToCountry,ShipToResidential,CarrierName,TaxRateName,Priority,CustomerPO,VendorPO,Date,Salesman,ShippingTerms,PaymentTerms,FOB,Note,LocationGroup
+      const customerPO = clean(order.transactionId ? `Txn: ${order.transactionId}` : 'Website Order');
       rows.push(
-        `"SO","${soNum}","20","${customerName}","","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","false","${clean(carrierName)}","${clean(carrierService)}","","CREDIT CARD","","${fbDateStr}","Stevep",""`
+        `"SO","${soNum}","20","${customerName}","","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","false","${clean(carrierName)}","None","30","${customerPO}","","${fbDateStr}","Stevep","Prepaid & Billed","CREDIT CARD","Origin","Paid via Credit Card (Website)","NY"`
       );
 
       // 2. Line Item Rows (Flag: "Item")
