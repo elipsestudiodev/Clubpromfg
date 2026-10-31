@@ -381,14 +381,57 @@ class FishbowlService {
       // Fishbowl Sales Order CSV format (Flag-based: "SO" for header, "Item" for items)
       const rows = [];
 
-      // Carrier detection: UPS or FedEx
-      const carrier = clean(order.carrier || shippingAddress.carrier || 'UPS');
-      const carrierName = carrier.toLowerCase().includes('fedex') ? 'FedEx' : 'UPS';
+      // Carrier & Service detection: UPS or FedEx
+      const svcRaw = String(shippingAddress.shippingServiceName || order.serviceLevel || order.shippingServiceName || '').trim();
+      const carrierHint = String(shippingAddress.carrier || order.carrier || '').trim().toLowerCase();
+
+      let isFedex = false;
+      let isUPS = false;
+      if (carrierHint.includes('fedex') || svcRaw.toLowerCase().includes('fedex')) {
+        isFedex = true;
+      } else if (carrierHint.includes('ups') || svcRaw.toLowerCase().includes('ups')) {
+        isUPS = true;
+      } else {
+        // Default to FedEx Ground for domestic e-commerce orders
+        isFedex = true;
+      }
+
+      let carrierName = 'Fedex';
+      let carrierService = '';
+
+      if (isUPS) {
+        carrierName = 'UPS';
+        if (svcRaw.toLowerCase().includes('next day early')) carrierService = 'Next Day Air Early A.M.';
+        else if (svcRaw.toLowerCase().includes('next day saver')) carrierService = 'Next Day Air Saver';
+        else if (svcRaw.toLowerCase().includes('next day')) carrierService = 'Next Day Air';
+        else if (svcRaw.toLowerCase().includes('2nd day air a.m.') || svcRaw.toLowerCase().includes('2day am')) carrierService = '2nd Day Air A.M.';
+        else if (svcRaw.toLowerCase().includes('2nd day') || svcRaw.toLowerCase().includes('2day')) carrierService = '2nd Day Air';
+        else if (svcRaw.toLowerCase().includes('3 day') || svcRaw.toLowerCase().includes('3day')) carrierService = '3 Day Select';
+        else carrierService = 'Ground';
+      } else {
+        // FedEx: In Fishbowl, carrier name is 'Fedex' (id 4) or 'Fedex Grnd' (id 25)
+        if (svcRaw.toLowerCase().includes('ground')) {
+          carrierName = 'Fedex Grnd';
+          carrierService = 'Ground';
+        } else if (svcRaw.toLowerCase().includes('2day')) {
+          carrierName = 'Fedex';
+          carrierService = '2Day';
+        } else if (svcRaw.toLowerCase().includes('express saver')) {
+          carrierName = 'Fedex';
+          carrierService = 'Express Saver';
+        } else if (svcRaw.toLowerCase().includes('priority overnight') || svcRaw.toLowerCase().includes('overnight')) {
+          carrierName = 'Fedex';
+          carrierService = 'Priority Overnight';
+        } else {
+          carrierName = 'Fedex';
+          carrierService = svcRaw.replace(/®/g, '').replace(/FedEx\s*/i, '').trim() || 'Ground';
+        }
+      }
 
       // 1. Order Header Row (Flag: "SO")
-      // Columns: Flag,SONum,Status,CustomerName,CustomerContact,BillToName,BillToAddress,BillToCity,BillToState,BillToZip,BillToCountry,ShipToName,ShipToAddress,ShipToCity,ShipToState,ShipToZip,ShipToCountry,ShipToResidential,CarrierName
+      // Columns: Flag,SONum,Status,CustomerName,CustomerContact,BillToName,BillToAddress,BillToCity,BillToState,BillToZip,BillToCountry,ShipToName,ShipToAddress,ShipToCity,ShipToState,ShipToZip,ShipToCountry,ShipToResidential,CarrierName,CarrierService,CostCenter,PaymentTerms,FirstShipDate,CreatedDate,Salesman,CustomerPO
       rows.push(
-        `"SO","${soNum}","20","${customerName}","","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","false","${carrierName}"`
+        `"SO","${soNum}","20","${customerName}","","${billToName}","${billToAddress}","${billToCity}","${billToState}","${billToZip}","${billToCountry}","${shipToName}","${shipToAddress}","${shipToCity}","${shipToState}","${shipToZip}","${shipToCountry}","false","${clean(carrierName)}","${clean(carrierService)}","","CREDIT CARD","","${dateStr}","Stevep",""`
       );
 
       // 2. Line Item Rows (Flag: "Item")
@@ -421,18 +464,16 @@ class FishbowlService {
         );
       }
 
-      // 3. Shipping Charge Line Item (if applicable)
-      // If FISHBOWL_SHIPPING_PRODUCT is set (a Fishbowl product of type "Shipping"), use a proper
-      // Shipping line (type 60). Otherwise use a Misc. Sale line (type 11) which needs no product.
+      // 3. Shipping Charge Line Item (matches Fishbowl's standard 'Shipping' product)
       const shipmentCostNum = parseFloat(order.shipmentCost || 0);
       if (shipmentCostNum > 0) {
         const shipCost = shipmentCostNum.toFixed(2);
-        const shipProduct = clean(process.env.FISHBOWL_SHIPPING_PRODUCT || '');
-        const shipDesc = clean(`Shipping & Handling${shippingAddress.shippingServiceName ? ` - ${shippingAddress.shippingServiceName}` : ''}`);
+        // Default to 'Shipping' product (SOItemTypeID 60: Shipping) to match Fishbowl standard setup
+        const shipProduct = clean(process.env.FISHBOWL_SHIPPING_PRODUCT || 'Shipping');
+        const cleanSvcTitle = svcRaw ? svcRaw.replace(/®/g, '').trim() : '';
+        const shipDesc = clean(`Shipping & Handling${cleanSvcTitle ? ` - ${cleanSvcTitle}` : ''}`);
         rows.push(
-          shipProduct
-            ? `"Item","60","${shipProduct}","${shipDesc}","1","ea","${shipCost}","false"`
-            : `"Item","11","","${shipDesc}","1","ea","${shipCost}","false"`
+          `"Item","60","${shipProduct}","${shipDesc}","1","ea","${shipCost}","false"`
         );
       }
 
@@ -453,12 +494,59 @@ class FishbowlService {
       });
 
       console.log(`[Fishbowl] Sales Order ${soNum} successfully created in Fishbowl!`);
+
+      // Attempt to record payment against the Sales Order so Fishbowl displays the PAID watermark
+      const orderTotalAmt = parseFloat(order.totalAmount || order.totalPrice || 0);
+      if (orderTotalAmt > 0) {
+        await this.recordPayment({
+          soNum,
+          customerName,
+          amount: orderTotalAmt,
+          transactionId: order.transactionId || '',
+          paymentMethod: 'CREDIT CARD',
+        }).catch((payErr) => {
+          console.warn(`[Fishbowl] Payment auto-record notice:`, payErr.message);
+        });
+      }
+
       console.log('========== [FISHBOWL] End ==========\n');
       return soNum;
     } catch (err) {
       console.error(`[Fishbowl Order Sync Failed for #${order.id}]:`, err.response?.data || err.message);
       // Non-fatal: does not block order completion
       return null;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 3b. Customer Payment Recording (for PAID watermark stamp)
+  // ─────────────────────────────────────────────────────────────
+  async recordPayment({ soNum, customerName, amount, transactionId, paymentMethod = 'CREDIT CARD' }) {
+    if (!this.isConfigured()) return;
+    const clean = (val) => (val || '').replace(/"/g, '""').trim();
+    const dateStr = new Date().toISOString().split('T')[0];
+    const amtStr = Number(amount || 0).toFixed(2);
+
+    try {
+      // 1. Try REST API /api/payments
+      await this.request('POST', '/api/payments', {
+        soNum,
+        amount: Number(amtStr),
+        paymentMethod,
+        referenceNum: transactionId || '',
+        date: dateStr,
+      });
+      console.log(`[Fishbowl] Payment of $${amtStr} recorded for ${soNum} via REST API`);
+      return;
+    } catch (e1) {
+      // 2. Fallback to Customer-Payment CSV import
+      try {
+        const csv = `"CustomerName","PaymentDate","PaymentMethod","Amount","ReferenceNum","SONum"\n"${clean(customerName)}","${dateStr}","${paymentMethod}","${amtStr}","${clean(transactionId)}","${clean(soNum)}"`;
+        await this.request('POST', '/api/import/Customer-Payment', csv, { contentType: 'text/plain' });
+        console.log(`[Fishbowl] Payment of $${amtStr} recorded for ${soNum} via CSV import`);
+      } catch (e2) {
+        console.warn(`[Fishbowl] Payment auto-record skipped (can be taken manually in FB):`, e2.response?.data || e2.message);
+      }
     }
   }
 

@@ -204,6 +204,16 @@ exports.dimeCharge = async (req, res) => {
     );
 
     const shipAddr = shippingAddress;
+    const chosenCarrier = (
+      req.body.carrier ||
+      shipAddr.carrier ||
+      (shipAddr.shippingServiceName?.toLowerCase().includes('ups') ? 'UPS' : 'FedEx')
+    );
+    const chosenService = (
+      req.body.serviceLevel ||
+      shipAddr.shippingServiceName ||
+      'FedEx Ground®'
+    );
     const subtotal = parsedItems.reduce(
       (acc, item) => acc + Number(item.price) * item.qty,
       0
@@ -220,6 +230,8 @@ exports.dimeCharge = async (req, res) => {
             totalAmount:    parseFloat(amount),
             shipmentCost:   shippingCost,
             shipmentStatus: "UNKNOWN",
+            carrier:        chosenCarrier,
+            serviceLevel:   chosenService,
             shipFirstName,
             shipLastName,
             shipAddress1:   shipAddr.address1 || customer.commercialStreet || customer.billingStreet || null,
@@ -317,10 +329,20 @@ exports.dimeCharge = async (req, res) => {
 
     // 4. Fishbowl Sync: Create Sales Order for FedEx Ship Manager & UPS WorldShip
     fishbowl.syncSalesOrder({
-      order,
+      order: {
+        ...order,
+        carrier: chosenCarrier,
+        serviceLevel: chosenService,
+        transactionId,
+        totalAmount: parseFloat(amount),
+      },
       customer,
       items: parsedItems,
-      shippingAddress: shipAddr,
+      shippingAddress: {
+        ...shipAddr,
+        carrier: chosenCarrier,
+        shippingServiceName: chosenService,
+      },
       billingAddress,
     }).catch((fbErr) => {
       console.error("[Fishbowl] Dime order sync error:", fbErr.message);

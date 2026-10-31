@@ -247,9 +247,12 @@ const CheckoutPage = () => {
     const calculatedTotal = (currentSubtotal + currentShippingCost).toFixed(2);
 
     try {
+      const chosenCarrier = (currentShippingService || '').toLowerCase().includes('fedex') ? 'FedEx' : 'UPS';
       const payload = {
         payment_token: paymentToken,
         amount: calculatedTotal,
+        carrier: chosenCarrier,
+        serviceLevel: currentShippingService,
         items: cartItems.map((item) => ({
           id:    item.id,
           name:  item.name,
@@ -265,6 +268,7 @@ const CheckoutPage = () => {
           zip:      currentShipping.zip,
           country:  currentShipping.country || 'US',
           phone:    currentShipping.phone,
+          carrier:  chosenCarrier,
           shippingCost: currentShippingCost.toFixed(2),
           shippingServiceName: currentShippingService,
         },
