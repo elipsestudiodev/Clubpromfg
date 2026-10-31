@@ -112,114 +112,169 @@ const sendOrderConfirmationEmail = async ({
   const billZip = billingAddress.zip || customer?.billingZip || shipZip;
 
   const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-      <!-- Header -->
-      <div style="background: #111111; padding: 32px 24px; text-align: center;">
-        <h1 style="color: #f9c821; margin: 0; font-size: 26px; letter-spacing: 1.5px; font-weight: 800; text-transform: uppercase;">CLUB PRO MFG</h1>
-        <p style="color: #ffffff; margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Order Confirmation</p>
-      </div>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Order Confirmation</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6; padding: 30px 10px;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+              <!-- Header -->
+              <tr>
+                <td align="center" style="background-color: #111111; padding: 32px 24px;">
+                  <h1 style="color: #f9c821; margin: 0; font-size: 26px; letter-spacing: 1.5px; font-weight: 800; text-transform: uppercase;">CLUB PRO MFG</h1>
+                  <p style="color: #ffffff; margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Order Confirmation</p>
+                </td>
+              </tr>
 
-      <!-- Main Body -->
-      <div style="padding: 32px 28px;">
-        <div style="text-align: center; margin-bottom: 28px;">
-          <div style="display: inline-block; background: #ecfdf5; color: #059669; font-weight: 700; font-size: 12px; padding: 6px 14px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; border: 1px solid #a7f3d0;">
-            ✓ Payment Confirmed
-          </div>
-          <h2 style="font-size: 22px; color: #111827; margin: 0 0 6px 0; font-weight: 700;">Thank You for Your Order!</h2>
-          <p style="font-size: 14px; color: #6b7280; margin: 0;">We've received your order and are currently preparing it for shipment.</p>
-        </div>
+              <!-- Main Content -->
+              <tr>
+                <td style="padding: 32px 28px;">
+                  <!-- Confirmation Banner -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+                    <tr>
+                      <td align="center">
+                        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+                          <tr>
+                            <td style="background-color: #ecfdf5; color: #059669; font-weight: 700; font-size: 12px; padding: 6px 16px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px; border: 1px solid #a7f3d0;">
+                              ✓ Payment Confirmed
+                            </td>
+                          </tr>
+                        </table>
+                        <h2 style="font-size: 22px; color: #111827; margin: 0 0 6px 0; font-weight: 700;">Thank You for Your Order!</h2>
+                        <p style="font-size: 14px; color: #6b7280; margin: 0;">We've received your order and are currently preparing it for shipment.</p>
+                      </td>
+                    </tr>
+                  </table>
 
-        <!-- Order Metadata Box -->
-        <div style="background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 8px; padding: 18px 20px; margin-bottom: 28px;">
-          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 13px;">
-            <div>
-              <span style="color: #6b7280; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Order Number</span>
-              <strong style="color: #111827; font-size: 15px;">#${order.id}</strong>
-            </div>
-            <div>
-              <span style="color: #6b7280; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Order Date</span>
-              <strong style="color: #111827;">${new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</strong>
-            </div>
-            <div>
-              <span style="color: #6b7280; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Shipping Carrier</span>
-              <strong style="color: #111827;">${carrier} (${serviceLevel})</strong>
-            </div>
-            <div>
-              <span style="color: #6b7280; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Payment Method</span>
-              <strong style="color: #111827;">Credit Card</strong>
-            </div>
-          </div>
-          ${transactionId ? `
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e5e7eb; font-size: 12px; color: #6b7280;">
-              <span>Transaction ID: </span><code style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: #111;">${transactionId}</code>
-            </div>
-          ` : ""}
-        </div>
+                  <!-- Order Metadata Box (Table-based for bulletproof Gmail support) -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 28px;">
+                    <tr>
+                      <td style="padding: 16px 20px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td width="25%" valign="top" style="padding: 4px 8px 4px 0;">
+                              <span style="color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Order Number</span>
+                              <strong style="color: #111827; font-size: 15px;">#${order.id}</strong>
+                            </td>
+                            <td width="25%" valign="top" style="padding: 4px 8px;">
+                              <span style="color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Order Date</span>
+                              <strong style="color: #111827; font-size: 13px;">${new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</strong>
+                            </td>
+                            <td width="28%" valign="top" style="padding: 4px 8px;">
+                              <span style="color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Carrier</span>
+                              <strong style="color: #111827; font-size: 13px;">${carrier}</strong>
+                            </td>
+                            <td width="22%" valign="top" style="padding: 4px 0 4px 8px;">
+                              <span style="color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Payment</span>
+                              <strong style="color: #059669; font-size: 13px;">Credit Card</strong>
+                            </td>
+                          </tr>
+                          ${transactionId ? `
+                            <tr>
+                              <td colspan="4" style="padding-top: 12px; margin-top: 8px; border-top: 1px dashed #e5e7eb; font-size: 12px; color: #6b7280;">
+                                <span>Transaction ID: </span><code style="background-color: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: #111;">${transactionId}</code>
+                              </td>
+                            </tr>
+                          ` : ""}
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
 
-        <!-- Order Items -->
-        <h3 style="font-size: 15px; color: #111827; margin: 0 0 14px 0; font-weight: 700; border-bottom: 2px solid #f9c821; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-          Items Ordered
-        </h3>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-          <thead>
-            <tr style="color: #9ca3af; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb;">
-              <th style="text-align: left; padding-bottom: 8px;">Product</th>
-              <th style="text-align: center; padding-bottom: 8px;">Qty</th>
-              <th style="text-align: right; padding-bottom: 8px;">Price</th>
-              <th style="text-align: right; padding-bottom: 8px;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
+                  <!-- Order Items -->
+                  <h3 style="font-size: 14px; color: #111827; margin: 0 0 12px 0; font-weight: 700; border-bottom: 2px solid #f9c821; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Items Ordered
+                  </h3>
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
+                    <thead>
+                      <tr style="color: #9ca3af; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb;">
+                        <th align="left" style="padding-bottom: 8px;">Product</th>
+                        <th align="center" style="padding-bottom: 8px;">Qty</th>
+                        <th align="right" style="padding-bottom: 8px;">Price</th>
+                        <th align="right" style="padding-bottom: 8px;">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${itemsHtml}
+                    </tbody>
+                  </table>
 
-        <!-- Totals -->
-        <div style="margin-left: auto; max-width: 260px; font-size: 14px; margin-bottom: 30px;">
-          <div style="display: flex; justify-content: space-between; padding: 6px 0; color: #4b5563;">
-            <span>Subtotal:</span>
-            <span>$${subtotal}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 6px 0; color: #4b5563;">
-            <span>Shipping (${carrier}):</span>
-            <span>$${shipmentCost}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 10px 0; font-size: 16px; font-weight: 700; color: #111827; border-top: 2px solid #111827; margin-top: 4px;">
-            <span>Total Paid:</span>
-            <span style="color: #059669;">$${totalAmount}</span>
-          </div>
-        </div>
+                  <!-- Financial Totals Table -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 28px;">
+                    <tr>
+                      <td align="right">
+                        <table width="280" cellpadding="4" cellspacing="0" border="0" style="font-size: 14px;">
+                          <tr>
+                            <td align="left" style="color: #6b7280;">Subtotal:</td>
+                            <td align="right" style="color: #111827; font-weight: 500;">$${subtotal}</td>
+                          </tr>
+                          <tr>
+                            <td align="left" style="color: #6b7280;">Shipping (${carrier}):</td>
+                            <td align="right" style="color: #111827; font-weight: 500;">$${shipmentCost}</td>
+                          </tr>
+                          <tr>
+                            <td colspan="2" style="padding: 0;"><div style="border-top: 2px solid #111827; margin: 6px 0;"></div></td>
+                          </tr>
+                          <tr>
+                            <td align="left" style="font-size: 16px; font-weight: 700; color: #111827;">Total Paid:</td>
+                            <td align="right" style="font-size: 16px; font-weight: 700; color: #059669;">$${totalAmount}</td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
 
-        <!-- Addresses -->
-        <div style="display: flex; flex-wrap: wrap; gap: 20px; border-top: 1px solid #e5e7eb; padding-top: 24px; margin-bottom: 28px;">
-          <div style="flex: 1; min-width: 220px; font-size: 13px; color: #4b5563; line-height: 1.6;">
-            <strong style="color: #111827; display: block; font-size: 14px; margin-bottom: 6px;">Shipping Address</strong>
-            <div>${recipientName}</div>
-            <div>${shipStreet}</div>
-            <div>${shipCity ? `${shipCity}, ` : ""}${shipState} ${shipZip}</div>
-            <div>${shipCountry}</div>
-          </div>
-          <div style="flex: 1; min-width: 220px; font-size: 13px; color: #4b5563; line-height: 1.6;">
-            <strong style="color: #111827; display: block; font-size: 14px; margin-bottom: 6px;">Billing Address</strong>
-            <div>${billName}</div>
-            <div>${billStreet}</div>
-            <div>${billCity ? `${billCity}, ` : ""}${billState} ${billZip}</div>
-          </div>
-        </div>
+                  <!-- Addresses Table -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top: 1px solid #e5e7eb; padding-top: 24px; margin-bottom: 28px;">
+                    <tr>
+                      <td width="50%" valign="top" style="font-size: 13px; color: #4b5563; line-height: 1.6; padding-right: 15px;">
+                        <strong style="color: #111827; display: block; font-size: 14px; margin-bottom: 6px;">Shipping Address</strong>
+                        <div>${recipientName}</div>
+                        <div>${shipStreet}</div>
+                        <div>${shipCity ? `${shipCity}, ` : ""}${shipState} ${shipZip}</div>
+                        <div>${shipCountry}</div>
+                      </td>
+                      <td width="50%" valign="top" style="font-size: 13px; color: #4b5563; line-height: 1.6; padding-left: 15px;">
+                        <strong style="color: #111827; display: block; font-size: 14px; margin-bottom: 6px;">Billing Address</strong>
+                        <div>${billName}</div>
+                        <div>${billStreet}</div>
+                        <div>${billCity ? `${billCity}, ` : ""}${billState} ${billZip}</div>
+                        <div>${shipCountry}</div>
+                      </td>
+                    </tr>
+                  </table>
 
-        <!-- What to Expect Next -->
-        <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 18px 20px; font-size: 13px; color: #854d0e; line-height: 1.6;">
-          <strong style="display: block; font-size: 14px; margin-bottom: 4px; color: #713f12;">📦 What happens next?</strong>
-          Our warehouse team is picking, inspecting, and packaging your order. As soon as your shipment is picked up by <strong>${carrier}</strong>, we will send you a shipment email with your official <strong>Tracking Number</strong> and real-time tracking link.
-        </div>
-      </div>
+                  <!-- What to Expect Next -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fefce8; border: 1px solid #fef08a; border-radius: 8px;">
+                    <tr>
+                      <td style="padding: 16px 20px; font-size: 13px; color: #854d0e; line-height: 1.6;">
+                        <strong style="display: block; font-size: 14px; margin-bottom: 4px; color: #713f12;">📦 What happens next?</strong>
+                        Our warehouse team is picking, inspecting, and packaging your order. As soon as your shipment is picked up by <strong>${carrier}</strong>, we will send you a shipment email with your official <strong>Tracking Number</strong> and real-time tracking link.
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
 
-      <!-- Footer -->
-      <div style="background: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb;">
-        <p style="margin: 0 0 4px 0;">Club Pro Manufacturing USA &bull; High Quality Golf Cart Enclosures & Accessories</p>
-        <p style="margin: 0;">Need help with your order? Contact us at <a href="mailto:greengrass@elipsestudio.info" style="color: #111827; font-weight: 600;">greengrass@elipsestudio.info</a></p>
-      </div>
-    </div>
+              <!-- Footer -->
+              <tr>
+                <td align="center" style="background-color: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb;">
+                  <p style="margin: 0 0 4px 0;">Club Pro Manufacturing USA &bull; High Quality Golf Cart Enclosures & Accessories</p>
+                  <p style="margin: 0;">Need help with your order? Contact us at <a href="mailto:greengrass@elipsestudio.info" style="color: #111827; font-weight: 600;">greengrass@elipsestudio.info</a></p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
   `;
 
   return sendEmail({
@@ -263,58 +318,107 @@ const sendOrderShippedEmail = async ({
   `).join("");
 
   const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #eaeaea; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-      <div style="background: #111111; padding: 28px 24px; text-align: center;">
-        <h1 style="color: #f9c821; margin: 0; font-size: 24px; letter-spacing: 1px; font-weight: 800; text-transform: uppercase;">CLUB PRO MFG</h1>
-        <p style="color: #ffffff; margin: 6px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Your Order Has Shipped!</p>
-      </div>
-      
-      <div style="padding: 32px 24px;">
-        <p style="font-size: 16px; color: #222; margin-top: 0;">Hi <strong>${recipientName}</strong>,</p>
-        <p style="font-size: 14px; color: #555; line-height: 1.6;">
-          Great news! Your order <strong>#${order.id}</strong> has been fulfilled and shipped via <strong>${isFedEx ? "FedEx" : "UPS"}</strong>.
-        </p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Your Order Has Shipped!</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6; padding: 30px 10px;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+              <!-- Header -->
+              <tr>
+                <td align="center" style="background-color: #111111; padding: 32px 24px;">
+                  <h1 style="color: #f9c821; margin: 0; font-size: 26px; letter-spacing: 1.5px; font-weight: 800; text-transform: uppercase;">CLUB PRO MFG</h1>
+                  <p style="color: #ffffff; margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Your Order Has Shipped!</p>
+                </td>
+              </tr>
+              
+              <!-- Body -->
+              <tr>
+                <td style="padding: 32px 28px;">
+                  <p style="font-size: 16px; color: #111827; margin: 0 0 10px 0;">Hi <strong>${recipientName}</strong>,</p>
+                  <p style="font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 24px 0;">
+                    Great news! Your order <strong>#${order.id}</strong> has been fulfilled by our warehouse and dispatched via <strong>${isFedEx ? "FedEx" : "UPS"}</strong>.
+                  </p>
 
-        <div style="background: #fbfbfb; border: 1px solid #eee; border-radius: 8px; padding: 22px; margin: 24px 0; text-align: center;">
-          <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Carrier &amp; Tracking Number</div>
-          <div style="font-size: 18px; font-weight: 700; color: #111; font-family: monospace; letter-spacing: 1px; margin-bottom: 16px;">
-            ${cleanTracking || "Tracking details updating soon"}
-          </div>
-          ${cleanTracking ? `
-            <a href="${trackingUrl}" target="_blank" style="display: inline-block; background: #f9c821; color: #111; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
-              Track Your Package &rarr;
-            </a>
-          ` : `
-            <span style="font-size: 13px; color: #666;">Carrier scan in progress</span>
-          `}
-        </div>
+                  <!-- Tracking Box -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fefce8; border: 1px solid #fef08a; border-radius: 10px; margin-bottom: 28px;">
+                    <tr>
+                      <td align="center" style="padding: 24px 20px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #854d0e; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">
+                          Carrier &amp; Tracking Number
+                        </span>
+                        <div style="font-size: 20px; font-weight: 800; color: #111827; font-family: monospace; letter-spacing: 1px; margin-bottom: 16px;">
+                          ${cleanTracking || "Tracking details updating soon"}
+                        </div>
+                        ${cleanTracking ? `
+                          <table cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td align="center" style="background-color: #f9c821; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                <a href="${trackingUrl}" target="_blank" style="display: inline-block; padding: 12px 32px; font-size: 14px; font-weight: 700; color: #111111; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">
+                                  Track Your Package &rarr;
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        ` : `
+                          <span style="font-size: 13px; color: #6b7280;">Carrier pickup in progress</span>
+                        `}
+                      </td>
+                    </tr>
+                  </table>
 
-        <h3 style="font-size: 15px; color: #111; margin-bottom: 12px; border-bottom: 2px solid #f9c821; padding-bottom: 6px;">Order Summary</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-          <thead>
-            <tr style="color: #888; text-transform: uppercase; font-size: 11px;">
-              <th style="text-align: left; padding-bottom: 8px;">Item</th>
-              <th style="text-align: center; padding-bottom: 8px;">Qty</th>
-              <th style="text-align: right; padding-bottom: 8px;">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
+                  <!-- Order Summary -->
+                  <h3 style="font-size: 14px; color: #111827; margin: 0 0 12px 0; font-weight: 700; border-bottom: 2px solid #f9c821; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Items Shipped
+                  </h3>
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; margin-bottom: 24px;">
+                    <thead>
+                      <tr style="color: #9ca3af; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb;">
+                        <th align="left" style="padding-bottom: 8px;">Item</th>
+                        <th align="center" style="padding-bottom: 8px;">Qty</th>
+                        <th align="right" style="padding-bottom: 8px;">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${itemsHtml}
+                    </tbody>
+                  </table>
 
-        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee; font-size: 13px; color: #666; line-height: 1.6;">
-          <strong>Delivering To:</strong><br />
-          ${order.shipAddress1 || ""}<br />
-          ${order.shipCity ? `${order.shipCity}, ` : ""}${order.shipState || ""} ${order.shipZip || ""}<br />
-          ${order.shipCountry || "US"}
-        </div>
-      </div>
+                  <!-- Delivery Address -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top: 1px solid #e5e7eb; padding-top: 18px; font-size: 13px; color: #4b5563; line-height: 1.6;">
+                    <tr>
+                      <td>
+                        <strong style="color: #111827; display: block; font-size: 13px; margin-bottom: 4px;">Delivering To:</strong>
+                        <div>${recipientName}</div>
+                        <div>${order.shipAddress1 || ""}</div>
+                        ${order.shipAddress2 ? `<div>${order.shipAddress2}</div>` : ""}
+                        <div>${order.shipCity ? `${order.shipCity}, ` : ""}${order.shipState || ""} ${order.shipZip || ""}</div>
+                        <div>${order.shipCountry || "US"}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
 
-      <div style="background: #f7f7f7; padding: 18px 24px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee;">
-        Questions? Contact us at <a href="mailto:greengrass@elipsestudio.info" style="color: #111;">greengrass@elipsestudio.info</a>
-      </div>
-    </div>
+              <!-- Footer -->
+              <tr>
+                <td align="center" style="background-color: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb;">
+                  <p style="margin: 0 0 4px 0;">Club Pro Manufacturing USA &bull; High Quality Golf Cart Enclosures & Accessories</p>
+                  <p style="margin: 0;">Questions? Contact us at <a href="mailto:greengrass@elipsestudio.info" style="color: #111827; font-weight: 600;">greengrass@elipsestudio.info</a></p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
   `;
 
   return sendEmail({
