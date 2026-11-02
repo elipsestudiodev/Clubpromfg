@@ -17,6 +17,8 @@ import {
   Clock,
   RotateCw,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { api, BASE_API, API_HOST } from "../utils/api";
 
@@ -33,6 +35,14 @@ export default function Profile() {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [orderError, setOrderError] = useState("");
+  const [expandedOrders, setExpandedOrders] = useState({});
+
+  const toggleOrderExpand = (orderId) => {
+    setExpandedOrders((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
 
   const fetchOrders = async () => {
     try {
@@ -466,50 +476,77 @@ export default function Profile() {
                       const shipCost = Number(order.shipmentCost || 0).toFixed(2);
                       const subtotal = (Number(totalAmt) - Number(shipCost)).toFixed(2);
 
+                      const isExpanded = Boolean(expandedOrders[order.id]);
+
                       return (
                         <div
                           key={order.id}
                           className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden"
                         >
-                          {/* Order Card Top Bar */}
-                          <div className="bg-gray-50/80 px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4">
-                            <div>
-                              <div className="flex items-center gap-3">
-                                <span className="font-extrabold text-lg text-gray-900">
-                                  Order #{order.id}
+                          {/* Order Card Top Bar (Collapsible Header) */}
+                          <div
+                            onClick={() => toggleOrderExpand(order.id)}
+                            className={`px-6 py-4 flex flex-wrap items-center justify-between gap-4 cursor-pointer transition-colors select-none ${
+                              isExpanded ? "bg-gray-50/90 border-b border-gray-200" : "hover:bg-gray-50/70"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-extrabold text-lg text-gray-900">
+                                    Order #{order.id}
+                                  </span>
+                                  {order.fishbowlSalesOrderNumber && (
+                                    <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono">
+                                      SO {order.fishbowlSalesOrderNumber}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-0.5">{orderDate}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                              <div className="text-right hidden sm:block">
+                                <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Total</span>
+                                <span className="font-extrabold text-sm text-gray-900">${totalAmt}</span>
+                              </div>
+
+                              {/* Status Badges */}
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Paid
                                 </span>
-                                {order.fishbowlSalesOrderNumber && (
-                                  <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono">
-                                    SO {order.fishbowlSalesOrderNumber}
+
+                                {isShipped ? (
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
+                                    <Truck className="w-3.5 h-3.5" /> Shipped
+                                  </span>
+                                ) : isDelivered ? (
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-green-100 text-green-800 border border-green-200">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Delivered
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                                    <Clock className="w-3.5 h-3.5" /> In Fulfillment
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-500 mt-0.5">{orderDate}</p>
-                            </div>
 
-                            {/* Status Badges */}
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Paid
-                              </span>
-
-                              {isShipped ? (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
-                                  <Truck className="w-3.5 h-3.5" /> Shipped
-                                </span>
-                              ) : isDelivered ? (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-green-100 text-green-800 border border-green-200">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Delivered
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
-                                  <Clock className="w-3.5 h-3.5" /> In Fulfillment
-                                </span>
-                              )}
+                              {/* Expand / Collapse Chevron */}
+                              <div className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-all shrink-0">
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4" />
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="p-6 space-y-6">
+                          {/* Order Details Body (Expands when clicked) */}
+                          {isExpanded && (
+                            <div className="p-6 space-y-6">
                             {/* Tracking & Shipment Status Box (Supports Single & Split Delivery) */}
                             {trackingList.length > 0 ? (
                               <div className="space-y-3">
@@ -671,6 +708,7 @@ export default function Profile() {
                               </div>
                             </div>
                           </div>
+                        )}
                         </div>
                       );
                     })}
