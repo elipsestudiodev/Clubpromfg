@@ -779,25 +779,38 @@ class FishbowlService {
       const rows = await this.request('GET', '/api/data-query', sql, { contentType: 'text/plain' });
 
       let updatedCount = 0;
-      const processedOrderIds = new Set();
-
+      // Group rows by order to handle single or multi-carton split shipments
+      const rowsByOrderId = new Map();
       for (const row of rows || []) {
         const isShippedOrFulfilled = Number(row.soStatus) === 60 || Number(row.shipStatus) === 30;
         if (!isShippedOrFulfilled) continue;
 
         const order = soNumMap.get(row.soNum) || soNumMap.get(String(row.soNum).replace('#', ''));
-        if (!order || processedOrderIds.has(order.id)) continue;
-        processedOrderIds.add(order.id);
+        if (!order) continue;
 
+        if (!rowsByOrderId.has(order.id)) {
+          rowsByOrderId.set(order.id, { order, rows: [] });
+        }
+        rowsByOrderId.get(order.id).rows.push(row);
+      }
+
+      for (const [orderId, { order, rows: orderRows }] of rowsByOrderId.entries()) {
         // Carrier determination
-        let carrierName = row.carrierName || order.carrier || 'FedEx';
+        const primaryRow = orderRows.find((r) => r.carrierName) || orderRows[0];
+        let carrierName = primaryRow?.carrierName || order.carrier || 'FedEx';
         if (carrierName.toLowerCase().includes('fedex')) carrierName = 'FedEx';
         else if (carrierName.toLowerCase().includes('ups')) carrierName = 'UPS';
 
-        const rawTracking = String(row.trackingNum || '').trim();
-        // If Fishbowl tracking number was recorded from FedEx Ship Manager / UPS WorldShip, use it.
-        // If testing and carton tracking was left blank in Fishbowl, provide a realistic test tracking number:
-        let trackingNumber = rawTracking || order.trackingNumber;
+        // Collect all distinct tracking numbers (supports split delivery / multiple cartons)
+        const collectedTracking = [];
+        for (const r of orderRows) {
+          const trk = String(r.trackingNum || '').trim();
+          if (trk && !collectedTracking.includes(trk)) {
+            collectedTracking.push(trk);
+          }
+        }
+
+        let trackingNumber = collectedTracking.join(', ') || order.trackingNumber;
         if (!trackingNumber) {
           const isFedEx = carrierName.toUpperCase().includes('FEDEX');
           trackingNumber = isFedEx

@@ -300,14 +300,55 @@ const sendOrderShippedEmail = async ({
     : order.customer?.fullName || "Valued Customer";
 
   const cleanTracking = String(trackingNumber || "").trim();
+  const rawTrackingList = cleanTracking ? cleanTracking.split(/[\s,]+/).filter(Boolean) : [];
+  const trackingList = rawTrackingList.length > 0 ? rawTrackingList : (cleanTracking ? [cleanTracking] : []);
+  const isSplitDelivery = trackingList.length > 1;
+
   const detectedCarrier = (carrier || order.carrier || (cleanTracking.toUpperCase().startsWith("1Z") ? "UPS" : "FedEx")).toUpperCase();
   const isFedEx = detectedCarrier.includes("FEDEX");
 
-  const trackingUrl = cleanTracking
-    ? (isFedEx
-        ? `https://www.fedex.com/fedextrack/?trknbr=${cleanTracking}`
-        : `https://www.ups.com/track?tracknum=${cleanTracking}`)
-    : "#";
+  const buildTrackingUrl = (trk) => {
+    const isTrkUPS = trk.toUpperCase().startsWith("1Z") || detectedCarrier.includes("UPS");
+    return isTrkUPS
+      ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trk)}`
+      : `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trk)}`;
+  };
+
+  const trackingBoxesHtml = trackingList.length === 0 ? `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fefce8; border: 1px solid #fef08a; border-radius: 10px; margin-bottom: 24px;">
+      <tr>
+        <td align="center" style="padding: 20px;">
+          <span style="font-size: 13px; color: #6b7280;">Carrier pickup in progress. Tracking details updating shortly.</span>
+        </td>
+      </tr>
+    </table>
+  ` : trackingList.map((trk, idx) => {
+    const trkUrl = buildTrackingUrl(trk);
+    const pkgLabel = isSplitDelivery ? `Package ${idx + 1} of ${trackingList.length}` : "Carrier & Tracking Number";
+    return `
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fefce8; border: 1px solid #fef08a; border-radius: 10px; margin-bottom: 16px;">
+        <tr>
+          <td align="center" style="padding: 20px;">
+            <span style="font-size: 11px; font-weight: 700; color: #854d0e; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px;">
+              ${pkgLabel} (${isFedEx ? "FedEx" : "UPS"})
+            </span>
+            <div style="font-size: 18px; font-weight: 800; color: #111827; font-family: monospace; letter-spacing: 1px; margin-bottom: 14px;">
+              ${trk}
+            </div>
+            <table cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td align="center" style="background-color: #f9c821; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <a href="${trkUrl}" target="_blank" style="display: inline-block; padding: 10px 24px; font-size: 13px; font-weight: 700; color: #111111; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Track Package ${isSplitDelivery ? (idx + 1) : ""} &rarr;
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    `;
+  }).join("");
 
   const itemsHtml = (order.items || []).map((i) => `
     <tr>
@@ -343,35 +384,11 @@ const sendOrderShippedEmail = async ({
                 <td style="padding: 32px 28px;">
                   <p style="font-size: 16px; color: #111827; margin: 0 0 10px 0;">Hi <strong>${recipientName}</strong>,</p>
                   <p style="font-size: 14px; color: #4b5563; line-height: 1.6; margin: 0 0 24px 0;">
-                    Great news! Your order <strong>#${order.id}</strong> has been fulfilled by our warehouse and dispatched via <strong>${isFedEx ? "FedEx" : "UPS"}</strong>.
+                    Great news! Your order <strong>#${order.id}</strong> has been fulfilled by our warehouse and dispatched via <strong>${isFedEx ? "FedEx" : "UPS"}</strong>${isSplitDelivery ? " in multiple packages (Split Shipment)" : ""}.
                   </p>
 
-                  <!-- Tracking Box -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fefce8; border: 1px solid #fef08a; border-radius: 10px; margin-bottom: 28px;">
-                    <tr>
-                      <td align="center" style="padding: 24px 20px;">
-                        <span style="font-size: 11px; font-weight: 700; color: #854d0e; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">
-                          Carrier &amp; Tracking Number
-                        </span>
-                        <div style="font-size: 20px; font-weight: 800; color: #111827; font-family: monospace; letter-spacing: 1px; margin-bottom: 16px;">
-                          ${cleanTracking || "Tracking details updating soon"}
-                        </div>
-                        ${cleanTracking ? `
-                          <table cellpadding="0" cellspacing="0" border="0">
-                            <tr>
-                              <td align="center" style="background-color: #f9c821; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                <a href="${trackingUrl}" target="_blank" style="display: inline-block; padding: 12px 32px; font-size: 14px; font-weight: 700; color: #111111; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">
-                                  Track Your Package &rarr;
-                                </a>
-                              </td>
-                            </tr>
-                          </table>
-                        ` : `
-                          <span style="font-size: 13px; color: #6b7280;">Carrier pickup in progress</span>
-                        `}
-                      </td>
-                    </tr>
-                  </table>
+                  <!-- Tracking Boxes (Supports Single & Split Delivery) -->
+                  ${trackingBoxesHtml}
 
                   <!-- Order Summary -->
                   <h3 style="font-size: 14px; color: #111827; margin: 0 0 12px 0; font-weight: 700; border-bottom: 2px solid #f9c821; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">

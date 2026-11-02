@@ -624,15 +624,9 @@ export default function Profile() {
                       const isPaid = order.status === "PAID";
                       const carrier = order.carrier || "FedEx";
                       const cleanTracking = (order.trackingNumber || "").trim();
-
-                      const isUPS =
-                        carrier.toUpperCase().includes("UPS") ||
-                        cleanTracking.toUpperCase().startsWith("1Z");
-                      const trackingUrl = cleanTracking
-                        ? isUPS
-                          ? `https://www.ups.com/track?tracknum=${cleanTracking}`
-                          : `https://www.fedex.com/fedextrack/?trknbr=${cleanTracking}`
-                        : null;
+                      const rawTrackingList = cleanTracking ? cleanTracking.split(/[\s,]+/).filter(Boolean) : [];
+                      const trackingList = rawTrackingList.length > 0 ? rawTrackingList : (cleanTracking ? [cleanTracking] : []);
+                      const isSplitDelivery = trackingList.length > 1;
 
                       const orderDate = new Date(order.createdAt).toLocaleDateString("en-US", {
                         year: "numeric",
@@ -692,32 +686,48 @@ export default function Profile() {
                           </div>
 
                           <div className="p-6 space-y-6">
-                            {/* Tracking & Shipment Status Box */}
-                            {cleanTracking ? (
-                              <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800">
-                                    <Truck className="w-4 h-4 text-amber-600" />
-                                    Shipped via {carrier} ({order.serviceLevel || "Ground"})
+                            {/* Tracking & Shipment Status Box (Supports Single & Split Delivery) */}
+                            {trackingList.length > 0 ? (
+                              <div className="space-y-3">
+                                {isSplitDelivery && (
+                                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-100/70 border border-amber-300 px-3 py-1.5 rounded-lg w-fit">
+                                    <Package className="w-3.5 h-3.5" /> Split Delivery &bull; {trackingList.length} Packages Dispatched
                                   </div>
-                                  <div className="text-sm text-gray-700">
-                                    Tracking Number:{" "}
-                                    <span className="font-mono font-bold text-gray-900 bg-white/80 px-2 py-0.5 rounded border border-amber-200">
-                                      {cleanTracking}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {trackingUrl && (
-                                  <a
-                                    href={trackingUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 bg-[#f9c821] hover:bg-[#e0b21a] text-black font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow"
-                                  >
-                                    Track Package <ExternalLink className="w-3.5 h-3.5" />
-                                  </a>
                                 )}
+                                {trackingList.map((trk, idx) => {
+                                  const isTrkUPS = trk.toUpperCase().startsWith("1Z") || carrier.toUpperCase().includes("UPS");
+                                  const trkUrl = isTrkUPS
+                                    ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trk)}`
+                                    : `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trk)}`;
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3"
+                                    >
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800">
+                                          <Truck className="w-4 h-4 text-amber-600" />
+                                          {isSplitDelivery ? `Package #${idx + 1} of ${trackingList.length}` : "Carrier Dispatch"}: {isTrkUPS ? "UPS" : "FedEx"} ({order.serviceLevel || "Ground"})
+                                        </div>
+                                        <div className="text-sm text-gray-700">
+                                          Tracking Number:{" "}
+                                          <span className="font-mono font-bold text-gray-900 bg-white/80 px-2 py-0.5 rounded border border-amber-200">
+                                            {trk}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <a
+                                        href={trkUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 bg-[#f9c821] hover:bg-[#e0b21a] text-black font-bold text-xs uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-sm hover:shadow"
+                                      >
+                                        Track Package {isSplitDelivery ? (idx + 1) : ""} <ExternalLink className="w-3.5 h-3.5" />
+                                      </a>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             ) : isShipped ? (
                               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
