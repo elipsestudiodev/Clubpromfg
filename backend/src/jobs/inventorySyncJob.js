@@ -120,23 +120,24 @@ function startInventorySyncJob() {
     return;
   }
 
-  const intervalMinutes = Math.max(
-    1,
-    parseInt(process.env.FISHBOWL_SYNC_INTERVAL_MINUTES || '5', 10)
+  // Fast, near real-time sync (default 30 seconds instead of 5 minutes)
+  const intervalSeconds = Math.max(
+    10,
+    parseInt(process.env.FISHBOWL_SYNC_INTERVAL_SECONDS || '30', 10)
   );
-  const intervalMs = intervalMinutes * 60 * 1000;
+  const intervalMs = intervalSeconds * 1000;
 
   console.log(
-    `[Fishbowl Sync Job] Registered background inventory sync every ${intervalMinutes} minute(s).`
+    `[Fishbowl Sync Job] Registered near real-time background inventory & shipment sync every ${intervalSeconds} second(s).`
   );
 
-  // Initial sync 15 seconds after boot (so DB connections & express server are fully ready)
+  // Initial sync 5 seconds after boot (so DB connections & express server are fully ready)
   setTimeout(() => {
     console.log('[Fishbowl Sync Job] Running initial startup inventory sync...');
     syncAllProductsInventory().catch((err) =>
       console.warn('[Fishbowl Sync Job] Initial run warning:', err.message)
     );
-  }, 15000);
+  }, 5000);
 
   // Periodic recurring background sync
   syncTimer = setInterval(() => {

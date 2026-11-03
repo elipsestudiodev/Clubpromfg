@@ -833,7 +833,8 @@ class FishbowlService {
           },
         });
 
-        console.log(`[Fishbowl Sync] Order #${order.id} (SO ${row.soNum}) marked SHIPPED in DB! Carrier: ${carrierName}, Tracking: ${trackingNumber || 'N/A'}`);
+        const displaySoNum = primaryRow?.soNum || order.fishbowlSalesOrderNumber || `#${order.id}`;
+        console.log(`[Fishbowl Sync] Order #${order.id} (SO ${displaySoNum}) marked SHIPPED in DB! Carrier: ${carrierName}, Tracking: ${trackingNumber || 'N/A'}`);
 
         // Dispatch shipping email
         try {
